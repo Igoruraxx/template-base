@@ -1,234 +1,154 @@
 
+## Sistema de Pagamento SaaS (Stripe + PIX)
 
-## Painel Administrativo SaaS - Plano de Implementacao
-
-Este e um projeto grande que sera dividido em fases para garantir qualidade. Abaixo esta o plano completo.
-
----
-
-### Fase 1: Banco de Dados
-
-**Nova tabela `trainer_subscriptions`:**
-- `id` (uuid, PK)
-- `trainer_id` (uuid, referencia profiles.user_id)
-- `plan` (text: 'free' ou 'premium')
-- `status` (text: 'active', 'cancelled', 'blocked')
-- `price` (numeric, default 9.90)
-- `started_at` (timestamptz)
-- `expires_at` (timestamptz)
-- `created_at`, `updated_at`
-
-**Politicas RLS:**
-- Admins podem ler/atualizar todas as subscriptions
-- Trainers podem ler apenas a propria subscription
-- Auto-criacao de subscription 'free' via trigger ao criar profile
-
-**View administrativa** (funcao SQL `admin_trainer_overview`):
-- Retorna nome, email, plano, status, contagem de alunos ativos por trainer
-- Acessivel apenas por admins via `SECURITY DEFINER`
+Implementar o fluxo de cobranca para personal trainers que atingem 5 alunos ativos, oferecendo Stripe (cartao) e PIX como opcoes de pagamento.
 
 ---
 
-### Fase 2: Layout e Rotas do Admin
+### Regra de Negocio
 
-**Novo layout `AdminLayout`:**
-- Menu lateral fixo com icones (Sidebar usando componente existente)
-- Itens: Dashboard, Usuarios, Cobrancas, Suporte
-- Dark mode seguindo o tema existente com detalhes em verde/turquesa
-
-**Novas paginas:**
-- `/admin` - Dashboard com cards de resumo
-- `/admin/users` - Tabela de gestao de trainers
-- `/admin/billing` - Graficos e vencimentos
-- `/admin/support` - Visualizador de fotos/bioimpedancia
-
-**Protecao de rotas:**
-- Novo componente `AdminRoute` que verifica `has_role(user_id, 'admin')` via query
-- Redireciona para `/` se nao for admin
-
-**Roteamento no App.tsx:**
-- Adicionar rotas `/admin/*` protegidas pelo `AdminRoute`
+- Cadastro de alunos e ilimitado
+- Ate 5 alunos ativos: plano gratuito, acesso completo
+- A partir do 6o aluno ativo: exibir modal de upgrade obrigatorio
+- Somente apos pagamento (Stripe ou PIX) o trainer pode ter mais de 5 alunos ativos
+- O acesso a dados (fotos, bioimpedancia, agenda, visualizacao) e liberado apenas para alunos ativos dentro do limite do plano
 
 ---
 
-### Fase 3: Dashboard Admin (`/admin`)
+### Fase 1: Integrar Stripe
 
-**Cards de resumo no topo:**
-1. Total de Personals Ativos
-2. Faturamento Mensal (MRR) - soma dos planos premium ativos
-3. Novos cadastros da semana
-
-**Mini-grafico** de crescimento de usuarios (ultimos 6 meses)
-
----
-
-### Fase 4: Gestao de Usuarios (`/admin/users`)
-
-**Tabela com colunas:**
-- Nome do Personal
-- E-mail
-- Status do Plano (tags coloridas: "Gratuito" em cinza, "Assinante" em dourado)
-- Alunos Ativos (com indicador visual quando proximo do limite de 5)
-- Acoes: Bloquear/Desbloquear, Ver detalhes
-
-**Funcionalidades:**
-- Busca por nome/email
-- Filtro por plano (gratuito/premium)
-- Botao "Bloquear Acesso" para inadimplentes
+1. Habilitar a integracao Stripe no projeto (solicitar chave secreta ao usuario)
+2. Criar edge function `create-checkout` que:
+   - Recebe o trainer_id
+   - Cria um checkout session do Stripe para o plano premium (R$ 9,90/mes recorrente)
+   - Retorna a URL de checkout
+3. Criar edge function `stripe-webhook` que:
+   - Recebe eventos do Stripe (checkout.session.completed, invoice.paid, customer.subscription.deleted)
+   - Atualiza `trainer_subscriptions` com plan='premium', status, expires_at
+4. Configurar produto e preco no Stripe via API na edge function
 
 ---
 
-### Fase 5: Modulo de Cobranca (`/admin/billing`)
+### Fase 2: Opcao PIX
 
-**Graficos (usando Recharts, ja instalado):**
-- Barras comparando usuarios gratuitos vs pagantes
-- Evolucao de MRR nos ultimos 6 meses
-
-**Lista de proximos vencimentos:**
-- Trainers com plano premium proximo do vencimento
+1. Adicionar no modal de upgrade um botao "Pagar via PIX"
+2. Ao clicar, exibir chave PIX fixa (configurada pelo admin) e instrucoes
+3. Registrar na tabela `trainer_subscriptions` com status='pending_pix'
+4. Admin confirma o pagamento manualmente no painel `/admin/users` (botao "Confirmar PIX")
+5. Ao confirmar, atualizar para plan='premium', status='active'
 
 ---
 
-### Fase 6: Trava de Limite de Alunos (Regra de Negocio)
+### Fase 3: Modal de Upgrade (Tela do Trainer)
 
-**No lado do trainer:**
-- Ao tentar cadastrar o 6o aluno no plano gratuito, exibir modal de upgrade
-- Mostrar no dashboard do trainer: "X/5 slots de alunos usados"
-- Badge de "Slots disponiveis" no header
+1. Criar componente `StudentLimitModal`:
+   - Exibido automaticamente quando trainer no plano free tenta cadastrar o 6o aluno ativo
+   - Mostra: "Voce atingiu o limite de 5 alunos ativos no plano gratuito"
+   - Dois botoes: "Assinar com Cartao (R$ 9,90/mes)" e "Pagar via PIX"
+   - Botao Stripe redireciona para o checkout
+   - Botao PIX mostra QR code / chave PIX
+2. Integrar o modal na pagina Students.tsx (antes de criar aluno, verificar limite)
 
-**Implementacao:**
-- Verificacao client-side antes de inserir aluno
-- Verificacao server-side via trigger ou politica RLS (seguranca)
+---
+
+### Fase 4: Indicador de Slots no Dashboard do Trainer
+
+1. Criar hook `useTrainerSubscription` que retorna:
+   - Plano atual (free/premium)
+   - Contagem de alunos ativos
+   - Slots disponiveis (5 - ativos se free, ou "Ilimitado" se premium)
+2. Mostrar no Index.tsx um card/badge: "3/5 alunos ativos" ou "Ilimitado"
+3. Na pagina Students.tsx, mostrar alerta quando proximo do limite (4/5)
+
+---
+
+### Fase 5: Painel Admin - Confirmacao PIX
+
+1. Adicionar na tabela de usuarios (`/admin/users`) uma coluna de acao "Confirmar PIX" para trainers com status='pending_pix'
+2. Ao confirmar, atualizar subscription para premium ativo
+
+---
+
+### Fase 6: Controle de Acesso por Limite
+
+1. Atualizar o trigger `check_student_limit` existente:
+   - Permitir INSERT de alunos sempre (cadastro ilimitado)
+   - Bloquear UPDATE de status para 'active' quando free e ja tem 5 ativos
+2. No StudentPortal (portal do aluno), verificar se o aluno esta ativo antes de exibir dados
+3. Na UI do trainer, alunos alem do limite ficam visiveis mas com status 'inactive' ate o upgrade
 
 ---
 
 ### Secao Tecnica
 
-**Estrutura de arquivos novos:**
+**Novas Edge Functions:**
 
 ```text
-src/
-  components/
-    AdminLayout.tsx          -- Layout com sidebar
-    AdminRoute.tsx           -- Protecao de rota admin
-    admin/
-      SummaryCards.tsx        -- Cards de resumo
-      TrainersTable.tsx       -- Tabela de gestao
-      BillingCharts.tsx       -- Graficos de cobranca
-      StudentLimitModal.tsx   -- Modal de upgrade
-  pages/
-    admin/
-      AdminDashboard.tsx      -- /admin
-      AdminUsers.tsx          -- /admin/users
-      AdminBilling.tsx        -- /admin/billing
-      AdminSupport.tsx        -- /admin/support
-  hooks/
-    useAdminData.ts           -- Queries admin
-    useTrainerSubscription.ts -- Subscription do trainer logado
+supabase/functions/
+  create-checkout/index.ts    -- Cria sessao Stripe checkout
+  stripe-webhook/index.ts     -- Recebe webhooks do Stripe
+```
+
+**Config.toml atualizado:**
+```text
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+```
+
+**Novos componentes:**
+```text
+src/components/StudentLimitModal.tsx   -- Modal de upgrade
+src/hooks/useTrainerSubscription.ts    -- Hook com dados do plano
+```
+
+**Arquivos modificados:**
+```text
+src/pages/Students.tsx        -- Verificacao de limite antes de criar aluno
+src/pages/Index.tsx            -- Badge de slots disponiveis
+src/hooks/useAdminData.ts      -- Mutation para confirmar PIX
+src/components/admin/TrainersTable.tsx -- Botao confirmar PIX
+src/pages/StudentPortal.tsx    -- Verificar status ativo do aluno
 ```
 
 **Migracao SQL:**
-
 ```text
--- Tabela de subscriptions
-CREATE TABLE trainer_subscriptions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  trainer_id uuid NOT NULL,
-  plan text NOT NULL DEFAULT 'free',
-  status text NOT NULL DEFAULT 'active',
-  price numeric DEFAULT 0,
-  started_at timestamptz DEFAULT now(),
-  expires_at timestamptz,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
--- RLS
-ALTER TABLE trainer_subscriptions ENABLE ROW LEVEL SECURITY;
-
--- Politica: admins veem tudo
-CREATE POLICY "Admins can manage subscriptions"
-  ON trainer_subscriptions FOR ALL
-  USING (has_role(auth.uid(), 'admin'));
-
--- Politica: trainer ve a propria
-CREATE POLICY "Trainers view own subscription"
-  ON trainer_subscriptions FOR SELECT
-  USING (auth.uid() = trainer_id);
-
--- Trigger: criar subscription free ao criar profile
-CREATE OR REPLACE FUNCTION create_free_subscription()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO trainer_subscriptions (trainer_id, plan, price)
-  VALUES (NEW.user_id, 'free', 0);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_profile_created
-  AFTER INSERT ON profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION create_free_subscription();
-
--- Funcao admin: overview de trainers
-CREATE OR REPLACE FUNCTION admin_trainer_overview()
-RETURNS TABLE (
-  user_id uuid,
-  full_name text,
-  email text,
-  plan text,
-  sub_status text,
-  active_students bigint,
-  created_at timestamptz
-)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT
-    p.user_id,
-    p.full_name,
-    u.email,
-    COALESCE(ts.plan, 'free'),
-    COALESCE(ts.status, 'active'),
-    COUNT(s.id) FILTER (WHERE s.status = 'active'),
-    p.created_at
-  FROM profiles p
-  JOIN auth.users u ON u.id = p.user_id
-  LEFT JOIN trainer_subscriptions ts ON ts.trainer_id = p.user_id
-  LEFT JOIN students s ON s.trainer_id = p.user_id
-  WHERE p.role = 'trainer'
-  GROUP BY p.user_id, p.full_name, u.email, ts.plan, ts.status, p.created_at;
-$$;
+-- Atualizar trigger check_student_limit para a nova logica
+-- Adicionar status 'pending_pix' como opcao valida
+-- Ajustar para permitir cadastro mas bloquear ativacao alem do limite
 ```
 
-**Componente AdminRoute:**
-
+**Fluxo Stripe:**
 ```text
--- Consulta user_roles para verificar role = 'admin'
--- Usa has_role RPC
--- Redireciona para '/' se nao for admin
--- Mostra loading enquanto verifica
+1. Trainer clica "Assinar" -> chama edge function create-checkout
+2. Edge function cria Stripe Checkout Session (mode: subscription)
+3. Trainer completa pagamento no Stripe
+4. Stripe envia webhook -> edge function stripe-webhook
+5. Webhook atualiza trainer_subscriptions (plan: premium, status: active)
+6. Trainer pode ter alunos ilimitados
 ```
 
-**Trava de alunos (client + server):**
-
+**Fluxo PIX:**
 ```text
--- Client: antes de criar aluno, consultar subscription e contar alunos
--- Se plan='free' e active_students >= 5, mostrar modal de upgrade
--- Server: trigger BEFORE INSERT em students que valida o limite
+1. Trainer clica "Pagar via PIX"
+2. Modal mostra chave PIX e valor (R$ 9,90)
+3. Trainer faz transferencia e avisa
+4. Admin ve no painel que ha um "PIX pendente"
+5. Admin confirma -> subscription atualizada para premium
 ```
 
 ---
 
 ### Ordem de Implementacao
 
-1. Migracao SQL (tabela + trigger + funcao)
-2. AdminRoute + AdminLayout com sidebar
-3. Rotas no App.tsx
-4. AdminDashboard com cards de resumo
-5. AdminUsers com tabela de gestao
-6. AdminBilling com graficos
-7. Modal de limite de alunos no fluxo do trainer
-8. Testes end-to-end
-
+1. Habilitar Stripe (solicitar chave)
+2. Criar edge functions (create-checkout + stripe-webhook)
+3. Criar componente StudentLimitModal
+4. Criar hook useTrainerSubscription
+5. Integrar modal na pagina Students
+6. Adicionar badge de slots no Index
+7. Atualizar painel admin com confirmacao PIX
+8. Ajustar trigger SQL
+9. Testar fluxo completo
