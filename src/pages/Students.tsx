@@ -34,7 +34,6 @@ import {
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   active: { label: 'Ativo', className: 'bg-primary/20 text-primary' },
   inactive: { label: 'Inativo', className: 'bg-muted text-muted-foreground' },
-  forgotten: { label: 'Esquecido', className: 'bg-amber-500/20 text-amber-400' },
 };
 
 const WEEKDAYS = [
@@ -548,7 +547,6 @@ const Students = () => {
                     <SelectContent>
                       <SelectItem value="active">Ativo</SelectItem>
                       <SelectItem value="inactive">Inativo</SelectItem>
-                      <SelectItem value="forgotten">Esquecido</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
