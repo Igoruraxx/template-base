@@ -9,8 +9,10 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Students from "./pages/Students";
 import Schedule from "./pages/Schedule";
+import Progress from "./pages/Progress";
 import Finance from "./pages/Finance";
 import Profile from "./pages/Profile";
+import StudentPortal from "./pages/StudentPortal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,9 +26,11 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/portal" element={<StudentPortal />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
             <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
+            <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
