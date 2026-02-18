@@ -7,8 +7,9 @@ import { useStudents } from '@/hooks/useStudents';
 import { useSessions } from '@/hooks/useSessions';
 import { usePayments } from '@/hooks/usePayments';
 import { AppLayout } from '@/components/AppLayout';
-import { Users, Calendar, DollarSign, TrendingUp, Dumbbell, AlertTriangle } from 'lucide-react';
+import { Users, Calendar, DollarSign, TrendingUp, Dumbbell, AlertTriangle, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTrainerSubscription } from '@/hooks/useTrainerSubscription';
 
 const Index = () => {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ const Index = () => {
   const { data: todaySessions } = useSessions(format(new Date(), 'yyyy-MM-dd'));
   const { data: payments } = usePayments();
   const navigate = useNavigate();
+  const { isPremium, slotsUsed, slotsTotal, isNearLimit } = useTrainerSubscription();
 
   const activeStudents = students?.filter(s => s.status === 'active').length || 0;
   const todayCount = todaySessions?.length || 0;
@@ -39,8 +41,10 @@ const Index = () => {
 
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || 'Treinador';
 
+  const slotsLabel = isPremium ? `${slotsUsed} • ∞` : `${slotsUsed}/${slotsTotal}`;
+
   const stats = [
-    { label: 'Alunos ativos', value: activeStudents, icon: Users, color: 'text-primary', route: '/students' },
+    { label: 'Alunos ativos', value: slotsLabel, icon: isPremium ? Crown : Users, color: isPremium ? 'text-amber-400' : 'text-primary', route: '/students' },
     { label: 'Sessões hoje', value: `${completedToday}/${todayCount}`, icon: Calendar, color: 'text-blue-400', route: '/schedule' },
     { label: 'Receita mês', value: `R$ ${monthRevenue.toFixed(0)}`, icon: DollarSign, color: 'text-emerald-400', route: '/finance' },
     { label: 'Pendentes', value: pendingPayments, icon: TrendingUp, color: 'text-amber-400', route: '/finance' },

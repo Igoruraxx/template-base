@@ -48,5 +48,25 @@ export const useAdminData = () => {
     },
   });
 
-  return { trainersQuery, subscriptionsQuery, blockTrainer };
+  const confirmPix = useMutation({
+    mutationFn: async (trainerId: string) => {
+      const { error } = await supabase
+        .from('trainer_subscriptions')
+        .update({
+          plan: 'premium',
+          status: 'active',
+          price: 9.90,
+          started_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+        .eq('trainer_id', trainerId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-trainers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-subscriptions'] });
+    },
+  });
+
+  return { trainersQuery, subscriptionsQuery, blockTrainer, confirmPix };
 };

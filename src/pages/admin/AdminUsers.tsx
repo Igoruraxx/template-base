@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 const AdminUsers = () => {
-  const { trainersQuery, blockTrainer } = useAdminData();
+  const { trainersQuery, blockTrainer, confirmPix } = useAdminData();
   const trainers = trainersQuery.data ?? [];
 
   const handleBlock = (trainerId: string, blocked: boolean) => {
@@ -16,6 +16,13 @@ const AdminUsers = () => {
         onError: () => toast.error('Erro ao atualizar status'),
       }
     );
+  };
+
+  const handleConfirmPix = (trainerId: string) => {
+    confirmPix.mutate(trainerId, {
+      onSuccess: () => toast.success('PIX confirmado! Plano Premium ativado.'),
+      onError: () => toast.error('Erro ao confirmar PIX'),
+    });
   };
 
   return (
@@ -29,7 +36,8 @@ const AdminUsers = () => {
         {trainersQuery.isLoading ? (
           <Skeleton className="h-64 rounded-lg" />
         ) : (
-          <TrainersTable trainers={trainers} onBlock={handleBlock} isBlocking={blockTrainer.isPending} />
+          <TrainersTable trainers={trainers} onBlock={handleBlock} isBlocking={blockTrainer.isPending}
+            onConfirmPix={handleConfirmPix} isConfirmingPix={confirmPix.isPending} />
         )}
       </div>
     </AdminLayout>
