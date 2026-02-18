@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.check-subscription]
 verify_jwt = false
+
+[functions.generate-vapid-keys]
+verify_jwt = false
+
+[functions.push-notify]
+verify_jwt = false
+
+[functions.register-push]
+verify_jwt = false

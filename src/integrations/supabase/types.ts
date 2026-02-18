@@ -310,6 +310,39 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          daily_summary_hour: number
+          endpoint: string
+          id: string
+          p256dh: string
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          daily_summary_hour?: number
+          endpoint: string
+          id?: string
+          p256dh: string
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          daily_summary_hour?: number
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          trainer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           created_at: string
