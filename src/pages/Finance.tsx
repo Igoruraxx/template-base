@@ -257,15 +257,23 @@ const Finance = () => {
                       className={cn('h-9 w-9 rounded-full flex items-center justify-center shrink-0', st.className)}>
                       <Icon className="h-4 w-4" />
                     </button>
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold text-sm">{payment.students?.name || 'Aluno'}</p>
                       <p className="text-[10px] text-muted-foreground">
                         {payment.students?.payment_due_day ? `Vence dia ${payment.students.payment_due_day}` : payment.reference_month}
+                        {' · '}R$ {Number(payment.amount).toFixed(0)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="font-bold text-sm">R$ {Number(payment.amount).toFixed(0)}</p>
+                    {payment.status !== 'paid' ? (
+                      <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs font-semibold text-primary"
+                        onClick={() => togglePaid(payment)}>
+                        <Check className="h-3.5 w-3.5 mr-1" /> Receber
+                      </Button>
+                    ) : (
+                      <span className="text-xs font-medium text-primary/70">Pago</span>
+                    )}
                     {payment.status !== 'paid' && payment.students?.phone && (
                       <button onClick={() => openWhatsApp(
                         payment.students.phone,
