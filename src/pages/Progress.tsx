@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, ScanLine, ArrowLeftRight, ClipboardList } from 'lucide-react';
+import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, ScanLine, ArrowLeftRight, ClipboardList, FileDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -21,6 +21,7 @@ import { fileToBase64 } from '@/lib/imageUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { BeforeAfterComparison } from '@/components/BeforeAfterComparison';
 import { AssessmentTab } from '@/components/AssessmentTab';
+import { generateBioimpedancePdf } from '@/lib/generateBioimpedancePdf';
 
 const PHOTO_TYPES = [
   { value: 'front', label: 'Frente' },
@@ -255,9 +256,23 @@ const Progress = () => {
                       <p className="text-xs text-muted-foreground font-medium">
                         {format(parseISO(record.measured_at), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
                       </p>
-                      <button onClick={() => deleteBio.mutate(record.id)} className="text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            if (bioRecords) {
+                              const studentName = availableStudents.find(s => s.id === selectedStudent)?.name || 'Aluno';
+                              generateBioimpedancePdf(bioRecords, studentName, photos || undefined);
+                            }
+                          }}
+                          className="text-muted-foreground hover:text-primary"
+                          title="Baixar PDF"
+                        >
+                          <FileDown className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => deleteBio.mutate(record.id)} className="text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mt-2">
                       {record.weight && <div><p className="text-lg font-bold">{Number(record.weight).toFixed(1)}</p><p className="text-[10px] text-muted-foreground">Peso (kg)</p></div>}
