@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/hooks/use-toast';
 import {
   Calendar, Plus, ChevronLeft, ChevronRight, Clock, MapPin,
-  Check, Edit, Trash2, Bell, DollarSign
+  Check, Edit, Trash2, Bell, DollarSign, MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { openWhatsApp, buildReminderMessage } from '@/lib/whatsapp';
@@ -245,7 +245,17 @@ const Schedule = () => {
                 </button>
               )}
             </div>
-            <span className="text-xs text-muted-foreground">{session.scheduled_time?.slice(0, 5)}</span>
+            <div className="flex items-center gap-2">
+              {student?.phone && (
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  openWhatsApp(student.phone, `Olá ${student.name}, tudo bem?`);
+                }} className="text-muted-foreground hover:text-primary transition-colors">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <span className="text-xs text-muted-foreground">{session.scheduled_time?.slice(0, 5)}</span>
+            </div>
           </div>
           {session.muscle_groups && session.muscle_groups.length > 0 && (
             <div className="mt-1.5"><MuscleGroupBadges groups={session.muscle_groups} size="xs" /></div>
@@ -459,6 +469,12 @@ const Schedule = () => {
                     <Button onClick={() => { handleComplete(detailSession); setDetailSession(null); }}
                       className="flex-1 rounded-xl gradient-primary text-primary-foreground">
                       <Check className="h-4 w-4 mr-1" /> Concluir
+                    </Button>
+                  )}
+                  {detailSession.students?.phone && (
+                    <Button variant="outline" size="icon" className="rounded-xl"
+                      onClick={() => openWhatsApp(detailSession.students.phone, `Olá ${detailSession.students.name}, tudo bem?`)}>
+                      <MessageCircle className="h-4 w-4" />
                     </Button>
                   )}
                   <Button variant="outline" onClick={() => { setDetailSession(null); openEdit(detailSession); }}
