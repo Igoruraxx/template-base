@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { STUDENT_COLORS } from '@/lib/constants';
+import { useTrainerSubscription } from '@/hooks/useTrainerSubscription';
+import { StudentLimitModal } from '@/components/StudentLimitModal';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
@@ -69,6 +71,8 @@ const Students = () => {
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: 'inactivate' | 'deleteSessions' | 'generateSessions'; student: any } | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [limitModalOpen, setLimitModalOpen] = useState(false);
+  const { canAddActiveStudent, isPendingPix, slotsUsed, slotsTotal, isPremium, isNearLimit } = useTrainerSubscription();
 
   const [form, setForm] = useState({
     name: '', phone: '', email: '', goal: '', plan_type: 'monthly',
@@ -157,6 +161,15 @@ const Students = () => {
     };
 
     try {
+      // Check limit when creating/updating to active
+      if (payload.status === 'active' && !canAddActiveStudent) {
+        if (!editingStudent || editingStudent.status !== 'active') {
+          setDialogOpen(false);
+          setLimitModalOpen(true);
+          return;
+        }
+      }
+
       if (editingStudent) {
         await updateStudent.mutateAsync({ id: editingStudent.id, ...payload });
         toast({ title: 'Aluno atualizado!' });
@@ -261,7 +274,9 @@ const Students = () => {
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Alunos</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">{activeCount} ativos</p>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {isPremium ? `${slotsUsed} ativos • Ilimitado` : `${slotsUsed}/${slotsTotal} ativos`}
+            </p>
           </div>
           <Button onClick={() => { resetForm(); setDialogOpen(true); }} size="icon"
             className="rounded-xl gradient-primary shadow-lg shadow-primary/25 h-10 w-10">
@@ -407,6 +422,9 @@ const Students = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Student Limit Modal */}
+        <StudentLimitModal open={limitModalOpen} onOpenChange={setLimitModalOpen} isPendingPix={isPendingPix} />
 
         {/* Student Form Dialog */}
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Ban, CheckCircle } from 'lucide-react';
+import { Search, Ban, CheckCircle, CreditCard } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,9 +11,11 @@ interface TrainersTableProps {
   trainers: TrainerOverview[];
   onBlock: (trainerId: string, blocked: boolean) => void;
   isBlocking: boolean;
+  onConfirmPix?: (trainerId: string) => void;
+  isConfirmingPix?: boolean;
 }
 
-export const TrainersTable = ({ trainers, onBlock, isBlocking }: TrainersTableProps) => {
+export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isConfirmingPix }: TrainersTableProps) => {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<string>('all');
 
@@ -91,11 +93,25 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking }: TrainersTablePr
                 <TableCell>
                   {t.sub_status === 'blocked' ? (
                     <Badge variant="destructive">Bloqueado</Badge>
+                  ) : t.sub_status === 'pending_pix' ? (
+                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30">PIX Pendente</Badge>
                   ) : (
                     <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/30">Ativo</Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right space-x-1">
+                  {t.sub_status === 'pending_pix' && onConfirmPix && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-amber-400 hover:text-amber-300 border-amber-500/30"
+                      onClick={() => onConfirmPix(t.user_id)}
+                      disabled={isConfirmingPix}
+                    >
+                      <CreditCard className="h-3.5 w-3.5 mr-1" />
+                      Confirmar PIX
+                    </Button>
+                  )}
                   {t.sub_status === 'blocked' ? (
                     <Button
                       size="sm"
