@@ -1,66 +1,30 @@
 
-## PDF de Bioimpedancia com Fotos + Logo em Todo o App
 
-Tres mudancas: (1) criar gerador de PDF para bioimpedancia com comparativo e fotos de progresso, (2) substituir a logo do app pela imagem enviada em todos os lugares, (3) usar a logo no cabecalho do PDF.
+## Corrigir OCR de Bioimpedancia: Upload de Arquivo em vez de Foto
 
----
-
-### 1. PDF de Bioimpedancia com Fotos
-
-Um botao de download sera adicionado em cada card de bioimpedancia na aba "Bio" da pagina de Progresso. O PDF gerado contera:
-
-- **Cabecalho**: Logo do app + nome do aluno + data
-- **Dados da Bioimpedancia**: Peso, Gordura (%), Massa Muscular, Gordura Visceral, TMB, Agua Corporal (%), Massa Ossea
-- **Comparativo**: Se houver mais de um registro, mostra uma tabela comparando o primeiro e o ultimo registro com as diferencas (setas para cima/baixo)
-- **Fotos de Progresso**: Agrupadas por data, lado a lado (ate 3 por linha), em paginas separadas -- mesma logica que ja existe no PDF de avaliacao
+A funcionalidade de extracao automatica de dados da balanca sera ajustada para aceitar upload de arquivo (PDF ou imagem do laudo) em vez de tirar foto da tela da balanca.
 
 ---
 
-### 2. Logo em Todo o App
+### Mudancas
 
-A imagem enviada (relogio com braco musculoso) sera copiada para `src/assets/logo.png` e usada em:
+**Arquivo: `src/pages/Progress.tsx`**
 
-- **Tela de Login (Auth.tsx)**: Substituir o icone Dumbbell pela imagem
-- **Loading Screen**: Substituir o icone Dumbbell pela imagem
-- **Portal do Aluno**: Substituir o icone Dumbbell pela imagem
-- **PWA Icons**: Copiar para `public/icon-192.png` e `public/icon-512.png`
-- **Cabecalho do PDF**: Inserir a logo no topo do relatorio
+1. **Titulo e descricao do dialog OCR**: Trocar de "Bioimpedancia por Foto" / "Tire foto da tela da balanca" para "Bioimpedancia por Arquivo" / "Envie o laudo da balanca (PDF ou imagem) para extrair os dados automaticamente"
+2. **Input de arquivo**: Remover o atributo `capture="environment"` (que forca a camera) e ajustar o `accept` para aceitar tambem PDFs: `accept="image/*,.pdf"`
+3. **Texto do placeholder**: Trocar "Clique para selecionar a foto da balanca" para "Clique para enviar o laudo ou imagem"
+4. **Icone**: Trocar `ScanLine` por `FileText` ou `Upload` no titulo e na area de drop para ficar mais coerente com upload de arquivo
+5. **Preview**: Quando o arquivo for PDF, mostrar o nome do arquivo em vez de tentar exibir como imagem
 
 ---
 
 ### Secao Tecnica
 
-**Novo arquivo: `src/lib/generateBioimpedancePdf.ts`**
-- Funcao `async generateBioimpedancePdf(records, studentName, photos?)`
-- Recebe array de registros de bioimpedancia (tipo da tabela `bioimpedance`)
-- Cabecalho com logo (carregada de `/icon-192.png` via base64) + nome + data
-- Secao de dados do registro selecionado
-- Secao comparativa: tabela com colunas "Primeiro | Atual | Diferenca" mostrando evolucao de cada metrica
-- Secao de fotos: reutiliza a mesma logica de `loadImageAsBase64` e agrupamento por data do `generateAssessmentPdf.ts`
-- Download automatico do arquivo
+Todas as mudancas sao no arquivo `src/pages/Progress.tsx`, no bloco do dialog OCR (linhas ~329-388):
 
-**Arquivo modificado: `src/pages/Progress.tsx`**
-- Importar `generateBioimpedancePdf` e `useProgressPhotos` (ja importado)
-- Adicionar icone `FileDown` em cada card de bioimpedancia
-- Ao clicar, chamar a funcao passando todos os registros do aluno + fotos
+- Linha 334: Trocar titulo de "Bioimpedancia por Foto" para "Bioimpedancia por Arquivo"
+- Linha 336: Trocar descricao para "Envie o laudo da balanca (PDF ou imagem) para extrair os dados"
+- Linha 356-357: Trocar icone e texto do placeholder
+- Linha 360: Remover `capture="environment"` e mudar `accept` para `"image/*,.pdf"`
+- Adicionar logica para mostrar nome do arquivo quando for PDF em vez de preview de imagem
 
-**Arquivo modificado: `src/pages/Auth.tsx`**
-- Importar `logo` de `@/assets/logo.png`
-- Substituir `<Dumbbell>` por `<img src={logo}>` na area do logo
-
-**Arquivo modificado: `src/components/LoadingScreen.tsx`**
-- Importar `logo` de `@/assets/logo.png`
-- Substituir `<Dumbbell>` por `<img src={logo}>` com animacao mantida
-
-**Arquivo modificado: `src/pages/StudentPortal.tsx`**
-- Importar `logo` de `@/assets/logo.png`
-- Substituir `<Dumbbell>` por `<img src={logo}>`
-
-**Arquivo copiado: logo para `src/assets/logo.png`**
-- Imagem enviada pelo usuario
-
-**Arquivos copiados: `public/icon-192.png` e `public/icon-512.png`**
-- Mesma imagem para os icones PWA
-
-**Arquivo modificado: `src/lib/generateAssessmentPdf.ts`**
-- Adicionar logo no cabecalho do PDF de avaliacao fisica tambem (consistencia)
