@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAssessments, useDeleteAssessment, Assessment } from '@/hooks/useAssessments';
+import { useProgressPhotos } from '@/hooks/useProgressPhotos';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, ClipboardList, FileDown } from 'lucide-react';
+import { Plus, Trash2, ClipboardList, FileDown, Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { NewAssessmentDialog } from './NewAssessmentDialog';
 import { AssessmentAnalysis } from './AssessmentAnalysis';
 import { generateAssessmentPdf } from '@/lib/generateAssessmentPdf';
+import { useToast } from '@/hooks/use-toast';
 
 interface Props {
   studentId: string;
@@ -17,10 +19,23 @@ interface Props {
 
 export const AssessmentTab = ({ studentId, studentName }: Props) => {
   const { data: assessments } = useAssessments(studentId);
+  const { data: photos } = useProgressPhotos(studentId);
   const deleteAssessment = useDeleteAssessment();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const records = assessments || [];
+
+  const handleGeneratePdf = async (r: Assessment) => {
+    setGeneratingPdf(r.id);
+    try {
+      await generateAssessmentPdf(r, studentName || 'Aluno', photos || []);
+    } catch {
+      toast({ title: 'Erro ao gerar PDF', variant: 'destructive' });
+    }
+    setGeneratingPdf(null);
+  };
 
   const compData = records.map(r => ({
     date: format(parseISO(r.measured_at), 'dd/MM', { locale: ptBR }),
@@ -103,9 +118,10 @@ export const AssessmentTab = ({ studentId, studentName }: Props) => {
                 {format(parseISO(r.measured_at), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
               </p>
               <div className="flex items-center gap-1.5">
-                <button onClick={() => generateAssessmentPdf(r, studentName || 'Aluno')}
-                  className="text-muted-foreground hover:text-primary" title="Baixar PDF">
-                  <FileDown className="h-3.5 w-3.5" />
+                <button onClick={() => handleGeneratePdf(r)}
+                  disabled={generatingPdf === r.id}
+                  className="text-muted-foreground hover:text-primary disabled:opacity-50" title="Baixar PDF">
+                  {generatingPdf === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
                 </button>
                 <button onClick={() => deleteAssessment.mutate({ id: r.id, studentId })}
                   className="text-muted-foreground hover:text-destructive">

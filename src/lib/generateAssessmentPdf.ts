@@ -3,7 +3,62 @@ import { Assessment } from '@/hooks/useAssessments';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export function generateAssessmentPdf(assessment: Assessment, studentName: string) {
+interface ProgressPhoto {
+  photo_url: string;
+  photo_type: string | null;
+  taken_at: string;
+}
+
+const PHOTO_TYPE_LABELS: Record<string, string> = {
+  front: 'Frente',
+  side: 'Lado',
+  back: 'Costas',
+  other: 'Outro',
+};
+
+async function loadImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxSize = 800;
+          let { width, height } = img;
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = Math.round((height * maxSize) / width);
+              width = maxSize;
+            } else {
+              width = Math.round((width * maxSize) / height);
+              height = maxSize;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.onerror = () => resolve(null);
+        img.src = reader.result as string;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function generateAssessmentPdf(
+  assessment: Assessment,
+  studentName: string,
+  photos?: ProgressPhoto[]
+) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = 20;
@@ -155,6 +210,56 @@ export function generateAssessmentPdf(assessment: Assessment, studentName: strin
     doc.setFont('helvetica', 'normal');
     const lines = doc.splitTextToSize(assessment.notes, pageWidth - 28);
     doc.text(lines, 14, y);
+  }
+
+  // Progress Photos grouped by date
+  if (photos && photos.length > 0) {
+    const grouped: Record<string, ProgressPhoto[]> = {};
+    for (const p of photos) {
+      const dateKey = p.taken_at;
+      if (!grouped[dateKey]) grouped[dateKey] = [];
+      grouped[dateKey].push(p);
+    }
+
+    const sortedDates = Object.keys(grouped).sort();
+
+    for (const dateKey of sortedDates) {
+      doc.addPage();
+      y = 20;
+
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      const dateLabel = format(parseISO(dateKey), "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+      doc.text(`Fotos de Progresso — ${dateLabel}`, 14, y);
+      y += 10;
+
+      const datePhotos = grouped[dateKey];
+      const photoWidth = 55;
+      const photoHeight = 75;
+      const gap = 5;
+      const startX = 14;
+
+      for (let i = 0; i < datePhotos.length; i++) {
+        const col = i % 3;
+        if (i > 0 && col === 0) {
+          y += photoHeight + 15;
+          if (y + photoHeight > 280) {
+            doc.addPage();
+            y = 20;
+          }
+        }
+
+        const x = startX + col * (photoWidth + gap);
+        const base64 = await loadImageAsBase64(datePhotos[i].photo_url);
+        if (base64) {
+          doc.addImage(base64, 'JPEG', x, y, photoWidth, photoHeight);
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          const typeLabel = PHOTO_TYPE_LABELS[datePhotos[i].photo_type || 'other'] || 'Outro';
+          doc.text(typeLabel, x + photoWidth / 2, y + photoHeight + 4, { align: 'center' });
+        }
+      }
+    }
   }
 
   const safeName = studentName.replace(/[^a-zA-Z0-9]/g, '_');
