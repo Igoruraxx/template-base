@@ -12,7 +12,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { AssessmentTab } from '@/components/AssessmentTab';
 import {
   Users, Plus, Search, CreditCard,
   MoreVertical, Edit, Trash2, MessageCircle, Bell, UserX, CalendarX2,
@@ -433,168 +435,198 @@ const Students = () => {
               <DialogDescription>Preencha os dados do aluno</DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 mt-2">
-              <div>
-                <Label className="text-muted-foreground text-xs">Nome *</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Nome do aluno" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-muted-foreground text-xs">Telefone</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="(99) 99999-9999" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-muted-foreground text-xs">Email</Label>
-                  <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="email@..." className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground text-xs">Objetivo</Label>
-                <Input value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })}
-                  placeholder="Ex: Hipertrofia, emagrecimento" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-muted-foreground text-xs">Plano</Label>
-                  <Select value={form.plan_type} onValueChange={(v) => setForm({ ...form, plan_type: v })}>
-                    <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Mensal</SelectItem>
-                      <SelectItem value="package">Pacote</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground text-xs">Valor (R$)</Label>
-                  <Input type="number" value={form.plan_value}
-                    onChange={(e) => setForm({ ...form, plan_value: e.target.value })}
-                    placeholder="0" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-                </div>
-              </div>
-
-              {form.plan_type === 'package' && (
-                <div>
-                  <Label className="text-muted-foreground text-xs">Total de sessões do pacote</Label>
-                  <Input type="number" value={form.package_total_sessions}
-                    onChange={(e) => setForm({ ...form, package_total_sessions: e.target.value })}
-                    className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-                </div>
-              )}
-
-              {/* Frequency */}
-              <div>
-                <Label className="text-muted-foreground text-xs">Frequência semanal</Label>
-                <div className="flex gap-1.5 mt-1.5">
-                  {['1', '2', '3', '4', '5', '6'].map(v => (
-                    <button key={v} type="button" onClick={() => handleSessionsPerWeekChange(v)}
-                      className={cn('h-10 w-10 rounded-xl text-sm font-semibold transition-all',
-                        form.sessions_per_week === v
-                          ? 'gradient-primary text-primary-foreground shadow-md'
-                          : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
-                      {v}x
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Schedule entries */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-muted-foreground text-xs">Dias e horários</Label>
-                  {scheduleConfig.length > 1 && (
-                    <button type="button" onClick={setAllTimesEqual}
-                      className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-medium transition-colors">
-                      <Copy className="h-3 w-3" /> Mesmo horário para todos
-                    </button>
-                  )}
-                </div>
-                {scheduleConfig.map((entry, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <Select value={entry.day} onValueChange={(v) => updateScheduleEntry(idx, 'day', v)}>
-                      <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-10 flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {WEEKDAYS.map(d => (
-                          <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input type="time" value={entry.time}
-                      onChange={(e) => updateScheduleEntry(idx, 'time', e.target.value)}
-                      className="bg-muted/50 border-border/50 rounded-xl h-10 w-28" />
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-muted-foreground text-xs">Dia vencimento</Label>
-                  <Input type="number" min="1" max="31" value={form.payment_due_day}
-                    onChange={(e) => setForm({ ...form, payment_due_day: e.target.value })}
-                    placeholder="1-31" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-muted-foreground text-xs">Status</Label>
-                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                    <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Ativo</SelectItem>
-                      <SelectItem value="inactive">Inativo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Switch checked={form.is_consulting} onCheckedChange={(v) => setForm({ ...form, is_consulting: v })} />
-                  <Label className="text-xs text-muted-foreground">Consultoria</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch checked={form.needs_reminder} onCheckedChange={(v) => setForm({ ...form, needs_reminder: v })} />
-                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Bell className="h-3 w-3" /> Lembrar
-                  </Label>
-                </div>
-              </div>
-
-              {/* Color picker */}
-              <div>
-                <Label className="text-muted-foreground text-xs">Cor</Label>
-                <div className="flex gap-2 mt-1.5 flex-wrap">
-                  {STUDENT_COLORS.map((c) => (
-                    <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
-                      className={cn('h-8 w-8 rounded-full transition-all',
-                        form.color === c ? 'ring-2 ring-offset-2 ring-offset-background scale-110' : 'hover:scale-105')}
-                      style={{ backgroundColor: c, '--tw-ring-color': c } as React.CSSProperties} />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground text-xs">Observações</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  placeholder="Anotações sobre o aluno..."
-                  className="bg-muted/50 border-border/50 rounded-xl mt-1 min-h-[80px]" />
-              </div>
-
-              <Button onClick={handleSave} disabled={createStudent.isPending || updateStudent.isPending}
-                className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold shadow-lg shadow-primary/25">
-                {editingStudent ? 'Salvar alterações' : 'Cadastrar aluno'}
-              </Button>
-            </div>
+            {editingStudent ? (
+              <Tabs defaultValue="dados" className="mt-2">
+                <TabsList className="w-full bg-muted rounded-xl p-1">
+                  <TabsTrigger value="dados" className="flex-1 rounded-lg text-xs">Dados</TabsTrigger>
+                  <TabsTrigger value="relatorio" className="flex-1 rounded-lg text-xs">Relatório</TabsTrigger>
+                </TabsList>
+                <TabsContent value="dados">
+                  <StudentForm form={form} setForm={setForm} scheduleConfig={scheduleConfig}
+                    handleSessionsPerWeekChange={handleSessionsPerWeekChange}
+                    updateScheduleEntry={updateScheduleEntry} setAllTimesEqual={setAllTimesEqual}
+                    handleSave={handleSave} isEditing={true}
+                    isPending={createStudent.isPending || updateStudent.isPending} />
+                </TabsContent>
+                <TabsContent value="relatorio">
+                  <AssessmentTab studentId={editingStudent.id} studentName={editingStudent.name} />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <StudentForm form={form} setForm={setForm} scheduleConfig={scheduleConfig}
+                handleSessionsPerWeekChange={handleSessionsPerWeekChange}
+                updateScheduleEntry={updateScheduleEntry} setAllTimesEqual={setAllTimesEqual}
+                handleSave={handleSave} isEditing={false}
+                isPending={createStudent.isPending || updateStudent.isPending} />
+            )}
           </DialogContent>
         </Dialog>
       </div>
     </AppLayout>
   );
 };
+
+type ScheduleEntryType = { day: string; time: string };
+
+const StudentForm = ({ form, setForm, scheduleConfig, handleSessionsPerWeekChange, updateScheduleEntry, setAllTimesEqual, handleSave, isEditing, isPending }: {
+  form: any; setForm: (f: any) => void; scheduleConfig: ScheduleEntryType[];
+  handleSessionsPerWeekChange: (v: string) => void; updateScheduleEntry: (i: number, f: 'day' | 'time', v: string) => void;
+  setAllTimesEqual: () => void; handleSave: () => void; isEditing: boolean; isPending: boolean;
+}) => (
+  <div className="space-y-4 mt-2">
+    <div>
+      <Label className="text-muted-foreground text-xs">Nome *</Label>
+      <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+        placeholder="Nome do aluno" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+    </div>
+
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <Label className="text-muted-foreground text-xs">Telefone</Label>
+        <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          placeholder="(99) 99999-9999" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+      </div>
+      <div>
+        <Label className="text-muted-foreground text-xs">Email</Label>
+        <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+          placeholder="email@..." className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+      </div>
+    </div>
+
+    <div>
+      <Label className="text-muted-foreground text-xs">Objetivo</Label>
+      <Input value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })}
+        placeholder="Ex: Hipertrofia, emagrecimento" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+    </div>
+
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <Label className="text-muted-foreground text-xs">Plano</Label>
+        <Select value={form.plan_type} onValueChange={(v) => setForm({ ...form, plan_type: v })}>
+          <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="monthly">Mensal</SelectItem>
+            <SelectItem value="package">Pacote</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-muted-foreground text-xs">Valor (R$)</Label>
+        <Input type="number" value={form.plan_value}
+          onChange={(e) => setForm({ ...form, plan_value: e.target.value })}
+          placeholder="0" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+      </div>
+    </div>
+
+    {form.plan_type === 'package' && (
+      <div>
+        <Label className="text-muted-foreground text-xs">Total de sessões do pacote</Label>
+        <Input type="number" value={form.package_total_sessions}
+          onChange={(e) => setForm({ ...form, package_total_sessions: e.target.value })}
+          className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+      </div>
+    )}
+
+    <div>
+      <Label className="text-muted-foreground text-xs">Frequência semanal</Label>
+      <div className="flex gap-1.5 mt-1.5">
+        {['1', '2', '3', '4', '5', '6'].map(v => (
+          <button key={v} type="button" onClick={() => handleSessionsPerWeekChange(v)}
+            className={cn('h-10 w-10 rounded-xl text-sm font-semibold transition-all',
+              form.sessions_per_week === v
+                ? 'gradient-primary text-primary-foreground shadow-md'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
+            {v}x
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-muted-foreground text-xs">Dias e horários</Label>
+        {scheduleConfig.length > 1 && (
+          <button type="button" onClick={setAllTimesEqual}
+            className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-medium transition-colors">
+            <Copy className="h-3 w-3" /> Mesmo horário para todos
+          </button>
+        )}
+      </div>
+      {scheduleConfig.map((entry, idx) => (
+        <div key={idx} className="flex gap-2 items-center">
+          <Select value={entry.day} onValueChange={(v) => updateScheduleEntry(idx, 'day', v)}>
+            <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-10 flex-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WEEKDAYS.map(d => (
+                <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input type="time" value={entry.time}
+            onChange={(e) => updateScheduleEntry(idx, 'time', e.target.value)}
+            className="bg-muted/50 border-border/50 rounded-xl h-10 w-28" />
+        </div>
+      ))}
+    </div>
+
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <Label className="text-muted-foreground text-xs">Dia vencimento</Label>
+        <Input type="number" min="1" max="31" value={form.payment_due_day}
+          onChange={(e) => setForm({ ...form, payment_due_day: e.target.value })}
+          placeholder="1-31" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+      </div>
+      <div>
+        <Label className="text-muted-foreground text-xs">Status</Label>
+        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+          <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Ativo</SelectItem>
+            <SelectItem value="inactive">Inativo</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
+        <Switch checked={form.is_consulting} onCheckedChange={(v) => setForm({ ...form, is_consulting: v })} />
+        <Label className="text-xs text-muted-foreground">Consultoria</Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch checked={form.needs_reminder} onCheckedChange={(v) => setForm({ ...form, needs_reminder: v })} />
+        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+          <Bell className="h-3 w-3" /> Lembrar
+        </Label>
+      </div>
+    </div>
+
+    <div>
+      <Label className="text-muted-foreground text-xs">Cor</Label>
+      <div className="flex gap-2 mt-1.5 flex-wrap">
+        {STUDENT_COLORS.map((c) => (
+          <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
+            className={cn('h-8 w-8 rounded-full transition-all',
+              form.color === c ? 'ring-2 ring-offset-2 ring-offset-background scale-110' : 'hover:scale-105')}
+            style={{ backgroundColor: c, '--tw-ring-color': c } as React.CSSProperties} />
+        ))}
+      </div>
+    </div>
+
+    <div>
+      <Label className="text-muted-foreground text-xs">Observações</Label>
+      <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
+        placeholder="Anotações sobre o aluno..."
+        className="bg-muted/50 border-border/50 rounded-xl mt-1 min-h-[80px]" />
+    </div>
+
+    <Button onClick={handleSave} disabled={isPending}
+      className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold shadow-lg shadow-primary/25">
+      {isEditing ? 'Salvar alterações' : 'Cadastrar aluno'}
+    </Button>
+  </div>
+);
 
 export default Students;
