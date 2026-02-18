@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, ScanLine, ArrowLeftRight } from 'lucide-react';
+import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, ScanLine, ArrowLeftRight, ClipboardList } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -20,6 +20,7 @@ import { MultiPhotoUpload } from '@/components/MultiPhotoUpload';
 import { fileToBase64 } from '@/lib/imageUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { BeforeAfterComparison } from '@/components/BeforeAfterComparison';
+import { AssessmentTab } from '@/components/AssessmentTab';
 
 const PHOTO_TYPES = [
   { value: 'front', label: 'Frente' },
@@ -169,6 +170,9 @@ const Progress = () => {
               <TabsTrigger value="bio" className="flex-1 rounded-lg text-xs">
                 <TrendingUp className="h-3.5 w-3.5 mr-1" /> Bio
               </TabsTrigger>
+              <TabsTrigger value="assessment" className="flex-1 rounded-lg text-xs">
+                <ClipboardList className="h-3.5 w-3.5 mr-1" /> Avaliação
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="photos">
@@ -275,6 +279,10 @@ const Progress = () => {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="assessment">
+              <AssessmentTab studentId={selectedStudent} />
             </TabsContent>
           </Tabs>
         ) : (
