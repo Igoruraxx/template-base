@@ -2,17 +2,17 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useAuth } from '@/contexts/AuthContext';
 import { useStudents } from '@/hooks/useStudents';
-import { usePayments, useCreatePayment, useUpdatePayment, useDeletePayment } from '@/hooks/usePayments';
+import { usePayments, useCreatePayment, useUpdatePayment, useDeletePayment, useAutoGeneratePayments, useMarkOverdue } from '@/hooks/usePayments';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, Plus, Check, Clock, AlertTriangle, Trash2, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DollarSign, Plus, Check, Clock, AlertTriangle, Trash2, MessageCircle, ChevronLeft, ChevronRight, Bell, Send } from 'lucide-react';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +23,6 @@ const STATUS_MAP: Record<string, { label: string; icon: any; className: string }
 };
 
 const Finance = () => {
-  const { user } = useAuth();
   const { data: students } = useStudents();
   const { data: payments } = usePayments();
   const createPayment = useCreatePayment();
@@ -40,7 +39,19 @@ const Finance = () => {
     status: 'pending', payment_method: '', notes: '',
   });
 
-  // All payments for the viewed month
+  // Auto-generate & mark overdue
+  useAutoGeneratePayments(viewMonthStr, students, payments);
+  useMarkOverdue(viewMonthStr, payments, students);
+
+  const today = new Date().getDate();
+
+  // Students due today
+  const dueTodayStudents = useMemo(() => {
+    if (!students) return [];
+    return students.filter(s => s.status === 'active' && s.payment_due_day === today);
+  }, [students, today]);
+
+  // Month payments
   const monthPayments = useMemo(() => {
     if (!payments) return [];
     return payments.filter((p: any) => p.reference_month === viewMonthStr);
@@ -51,26 +62,54 @@ const Finance = () => {
     return monthPayments.filter((p: any) => p.status === filterStatus);
   }, [monthPayments, filterStatus]);
 
-  // Expected revenue from active students
-  const activeStudentsWithValue = useMemo(() => {
-    if (!students) return [];
-    return students.filter(s => s.status === 'active' && s.plan_value);
+  // Expected from active students
+  const expectedTotal = useMemo(() => {
+    if (!students) return 0;
+    return students
+      .filter(s => s.status === 'active' && s.plan_value)
+      .reduce((sum, s) => sum + Number(s.plan_value || 0), 0);
   }, [students]);
 
-  const expectedTotal = useMemo(() => {
-    return activeStudentsWithValue.reduce((sum, s) => sum + Number(s.plan_value || 0), 0);
-  }, [activeStudentsWithValue]);
-
-  const summary = useMemo(() => {
-    const total = monthPayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-    const paid = monthPayments.filter((p: any) => p.status === 'paid').reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-    return { total, paid, pending: total - paid };
+  const receivedTotal = useMemo(() => {
+    return monthPayments
+      .filter((p: any) => p.status === 'paid')
+      .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
   }, [monthPayments]);
 
-  // Which students already paid this month
-  const paidStudentIds = useMemo(() => {
-    return new Set(monthPayments.filter((p: any) => p.status === 'paid').map((p: any) => p.student_id));
+  const pendingTotal = useMemo(() => {
+    return monthPayments
+      .filter((p: any) => p.status !== 'paid')
+      .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
   }, [monthPayments]);
+
+  const progressPct = expectedTotal > 0 ? Math.min((receivedTotal / expectedTotal) * 100, 100) : 0;
+
+  // Pending/overdue for bulk WhatsApp
+  const pendingPayments = useMemo(() => {
+    return monthPayments.filter((p: any) => p.status !== 'paid' && p.students?.phone);
+  }, [monthPayments]);
+
+  const handleBulkWhatsApp = () => {
+    pendingPayments.forEach((p: any, i: number) => {
+      setTimeout(() => {
+        openWhatsApp(
+          p.students.phone,
+          `Olá ${p.students.name}, seu pagamento de R$ ${Number(p.amount).toFixed(2)} referente a ${format(new Date(viewMonthStr + '-01'), 'MMMM/yyyy', { locale: ptBR })} está ${p.status === 'overdue' ? 'atrasado' : 'pendente'}. Podemos resolver?`
+        );
+      }, i * 1500);
+    });
+    toast({ title: `Abrindo WhatsApp para ${pendingPayments.length} aluno(s)` });
+  };
+
+  // Auto-fill amount when student selected
+  const handleStudentSelect = (studentId: string) => {
+    const student = students?.find(s => s.id === studentId);
+    setForm(prev => ({
+      ...prev,
+      student_id: studentId,
+      amount: student?.plan_value ? String(student.plan_value) : prev.amount,
+    }));
+  };
 
   const handleSave = async () => {
     if (!form.student_id || !form.amount) return toast({ title: 'Preencha aluno e valor', variant: 'destructive' });
@@ -101,10 +140,19 @@ const Finance = () => {
     }
   };
 
+  // Visual highlight helper
+  const getPaymentHighlight = (payment: any) => {
+    const student = students?.find(s => s.id === payment.student_id);
+    if (!student?.payment_due_day || payment.status === 'paid') return '';
+    if (payment.status === 'overdue') return 'ring-1 ring-destructive/30';
+    if (student.payment_due_day === today) return 'ring-1 ring-amber-400/40';
+    return '';
+  };
+
   return (
     <AppLayout>
       <div className="px-4 pt-12 pb-6 max-w-lg mx-auto">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-6">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Financeiro</h1>
             <p className="text-muted-foreground text-sm mt-0.5">Controle de pagamentos</p>
@@ -113,6 +161,31 @@ const Finance = () => {
             <Plus className="h-5 w-5" />
           </Button>
         </motion.div>
+
+        {/* Due today banner */}
+        {dueTodayStudents.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="glass rounded-xl p-3 mb-4 border border-amber-400/30 bg-amber-400/5">
+            <div className="flex items-center gap-2 mb-2">
+              <Bell className="h-4 w-4 text-amber-400" />
+              <p className="text-xs font-semibold">Hoje é dia de recebimento de {dueTodayStudents.length} aluno(s)</p>
+            </div>
+            <div className="space-y-1">
+              {dueTodayStudents.map(s => (
+                <div key={s.id} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold"
+                      style={{ backgroundColor: s.color || '#10b981' }}>
+                      {s.name.slice(0, 1)}
+                    </div>
+                    <span>{s.name}</span>
+                  </div>
+                  <span className="text-muted-foreground">R$ {Number(s.plan_value || 0).toFixed(0)}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Month navigation */}
         <div className="flex items-center justify-center gap-3 mb-4">
@@ -128,64 +201,45 @@ const Finance = () => {
           </Button>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="glass rounded-xl p-3 text-center">
-            <p className="text-lg font-bold">R$ {summary.total.toFixed(0)}</p>
-            <p className="text-[10px] text-muted-foreground">Total mês</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-            className="glass rounded-xl p-3 text-center">
-            <p className="text-lg font-bold text-primary">R$ {summary.paid.toFixed(0)}</p>
-            <p className="text-[10px] text-muted-foreground">Recebido</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="glass rounded-xl p-3 text-center">
-            <p className="text-lg font-bold text-amber-400">R$ {summary.pending.toFixed(0)}</p>
-            <p className="text-[10px] text-muted-foreground">Pendente</p>
-          </motion.div>
-        </div>
-
-        {/* Expected revenue */}
-        {activeStudentsWithValue.length > 0 && (
-          <div className="glass rounded-xl p-3 mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-muted-foreground">Previsão de recebimentos</p>
-              <p className="text-sm font-bold">R$ {expectedTotal.toFixed(0)}</p>
+        {/* Progress bar */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-muted-foreground">Recebido vs Previsto</p>
+            <p className="text-sm font-bold">{progressPct.toFixed(0)}%</p>
+          </div>
+          <Progress value={progressPct} className="h-2.5 mb-3" />
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <p className="text-sm font-bold text-primary">R$ {receivedTotal.toFixed(0)}</p>
+              <p className="text-[10px] text-muted-foreground">Recebido</p>
             </div>
-            <div className="space-y-1.5">
-              {activeStudentsWithValue.map(s => {
-                const hasPaid = paidStudentIds.has(s.id);
-                return (
-                  <div key={s.id} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold"
-                        style={{ backgroundColor: s.color || '#10b981' }}>
-                        {s.name.slice(0, 1)}
-                      </div>
-                      <span className={hasPaid ? 'text-muted-foreground line-through' : ''}>{s.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={hasPaid ? 'text-muted-foreground' : ''}>R$ {Number(s.plan_value).toFixed(0)}</span>
-                      {hasPaid && <Check className="h-3.5 w-3.5 text-primary" />}
-                    </div>
-                  </div>
-                );
-              })}
+            <div>
+              <p className="text-sm font-bold text-amber-400">R$ {pendingTotal.toFixed(0)}</p>
+              <p className="text-[10px] text-muted-foreground">Pendente</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold">R$ {expectedTotal.toFixed(0)}</p>
+              <p className="text-[10px] text-muted-foreground">Previsto</p>
             </div>
           </div>
-        )}
+        </motion.div>
 
-        {/* Filter */}
-        <div className="flex gap-1 mb-4">
-          {['all', 'paid', 'pending', 'overdue'].map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)}
-              className={cn('px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                filterStatus === s ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50')}>
-              {s === 'all' ? 'Todos' : STATUS_MAP[s].label}
-            </button>
-          ))}
+        {/* Filter + bulk action */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-1">
+            {['all', 'paid', 'pending', 'overdue'].map(s => (
+              <button key={s} onClick={() => setFilterStatus(s)}
+                className={cn('px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                  filterStatus === s ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50')}>
+                {s === 'all' ? 'Todos' : STATUS_MAP[s].label}
+              </button>
+            ))}
+          </div>
+          {pendingPayments.length > 0 && (
+            <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary" onClick={handleBulkWhatsApp}>
+              <Send className="h-3.5 w-3.5" /> Cobrar
+            </Button>
+          )}
         </div>
 
         {/* Payments list */}
@@ -193,9 +247,10 @@ const Finance = () => {
           {filtered.map((payment: any, i: number) => {
             const st = STATUS_MAP[payment.status || 'pending'];
             const Icon = st.icon;
+            const highlight = getPaymentHighlight(payment);
             return (
               <motion.div key={payment.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }} className="glass rounded-xl p-3">
+                transition={{ delay: i * 0.03 }} className={cn('glass rounded-xl p-3', highlight)}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <button onClick={() => togglePaid(payment)}
@@ -204,7 +259,9 @@ const Finance = () => {
                     </button>
                     <div>
                       <p className="font-semibold text-sm">{payment.students?.name || 'Aluno'}</p>
-                      <p className="text-[10px] text-muted-foreground">{payment.reference_month}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {payment.students?.payment_due_day ? `Vence dia ${payment.students.payment_due_day}` : payment.reference_month}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -244,7 +301,7 @@ const Finance = () => {
             <div className="space-y-4 mt-2">
               <div>
                 <Label className="text-muted-foreground text-xs">Aluno *</Label>
-                <Select value={form.student_id} onValueChange={(v) => setForm({ ...form, student_id: v })}>
+                <Select value={form.student_id} onValueChange={handleStudentSelect}>
                   <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {students?.map(s => (
