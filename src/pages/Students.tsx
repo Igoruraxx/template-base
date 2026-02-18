@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { addDays, format, startOfWeek, getDay, nextDay } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStudents, useCreateStudent, useUpdateStudent, useDeleteStudent, useInactivateStudent } from '@/hooks/useStudents';
-import { useDeleteFutureSessions } from '@/hooks/useSessions';
+import { useDeleteFutureSessions, useCreateSession } from '@/hooks/useSessions';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,8 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
   Users, Plus, Search, CreditCard,
-  MoreVertical, Edit, Trash2, MessageCircle, Bell, UserX, CalendarX2
+  MoreVertical, Edit, Trash2, MessageCircle, Bell, UserX, CalendarX2,
+  CalendarPlus, Copy
 } from 'lucide-react';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { STUDENT_COLORS } from '@/lib/constants';
@@ -42,6 +44,13 @@ const WEEKDAYS = [
   { value: '6', label: 'Sáb' },
 ];
 
+// Map schedule_config day (1=Mon...6=Sat) to JS Day (0=Sun, 1=Mon...6=Sat)
+const configDayToJsDay = (d: string): Day => {
+  const n = parseInt(d);
+  return (n === 7 ? 0 : n) as Day;
+};
+
+type Day = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 type ScheduleEntry = { day: string; time: string };
 
 const Students = () => {
@@ -52,12 +61,14 @@ const Students = () => {
   const deleteStudent = useDeleteStudent();
   const inactivateStudent = useInactivateStudent();
   const deleteFutureSessions = useDeleteFutureSessions();
+  const createSession = useCreateSession();
   const { toast } = useToast();
 
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
-  const [confirmAction, setConfirmAction] = useState<{ type: 'inactivate' | 'deleteSessions'; student: any } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'inactivate' | 'deleteSessions' | 'generateSessions'; student: any } | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const [form, setForm] = useState({
     name: '', phone: '', email: '', goal: '', plan_type: 'monthly',
@@ -122,26 +133,27 @@ const Students = () => {
     setScheduleConfig(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e));
   };
 
+  const setAllTimesEqual = () => {
+    if (scheduleConfig.length === 0) return;
+    const firstTime = scheduleConfig[0].time;
+    setScheduleConfig(prev => prev.map(e => ({ ...e, time: firstTime })));
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) return toast({ title: 'Nome é obrigatório', variant: 'destructive' });
 
     const payload: any = {
       name: form.name.trim(),
-      phone: form.phone || null,
-      email: form.email || null,
-      goal: form.goal || null,
+      phone: form.phone || null, email: form.email || null, goal: form.goal || null,
       plan_type: form.plan_type,
       plan_value: form.plan_value ? parseFloat(form.plan_value) : null,
       sessions_per_week: parseInt(form.sessions_per_week) || 3,
       package_total_sessions: form.plan_type === 'package' && form.package_total_sessions
         ? parseInt(form.package_total_sessions) : null,
-      color: form.color,
-      status: form.status,
-      is_consulting: form.is_consulting,
+      color: form.color, status: form.status, is_consulting: form.is_consulting,
       needs_reminder: form.needs_reminder,
       payment_due_day: form.payment_due_day ? parseInt(form.payment_due_day) : null,
-      notes: form.notes || null,
-      schedule_config: scheduleConfig,
+      notes: form.notes || null, schedule_config: scheduleConfig,
     };
 
     try {
@@ -168,15 +180,68 @@ const Students = () => {
     }
   };
 
+  const handleGenerateSessions = async (student: any) => {
+    const config: ScheduleEntry[] = (student as any).schedule_config;
+    if (!config || !Array.isArray(config) || config.length === 0) {
+      return toast({ title: 'Configure os dias/horários do aluno primeiro', variant: 'destructive' });
+    }
+
+    setGenerating(true);
+    try {
+      const today = new Date();
+      const sessions: { scheduled_date: string; scheduled_time: string }[] = [];
+
+      // Generate for 4 weeks
+      for (const entry of config) {
+        const jsDay = configDayToJsDay(entry.day);
+        let date = today;
+        // Find the next occurrence of this weekday
+        if (getDay(today) !== jsDay) {
+          date = nextDay(today, jsDay);
+        }
+        // Generate 4 occurrences
+        for (let w = 0; w < 4; w++) {
+          const sessionDate = addDays(date, w * 7);
+          sessions.push({
+            scheduled_date: format(sessionDate, 'yyyy-MM-dd'),
+            scheduled_time: entry.time,
+          });
+        }
+      }
+
+      // Create all sessions
+      let created = 0;
+      for (const s of sessions) {
+        await createSession.mutateAsync({
+          student_id: student.id,
+          trainer_id: user!.id,
+          scheduled_date: s.scheduled_date,
+          scheduled_time: s.scheduled_time,
+          duration_minutes: 60,
+        });
+        created++;
+      }
+
+      toast({ title: `${created} sessões criadas para as próximas 4 semanas!` });
+    } catch (err: any) {
+      toast({ title: 'Erro ao gerar sessões', description: err.message, variant: 'destructive' });
+    }
+    setGenerating(false);
+    setConfirmAction(null);
+  };
+
   const handleConfirmAction = async () => {
     if (!confirmAction) return;
     try {
       if (confirmAction.type === 'inactivate') {
         await inactivateStudent.mutateAsync(confirmAction.student.id);
         toast({ title: 'Aluno inativado! Cobranças pendentes removidas.' });
-      } else {
+      } else if (confirmAction.type === 'deleteSessions') {
         await deleteFutureSessions.mutateAsync(confirmAction.student.id);
         toast({ title: 'Sessões futuras removidas!' });
+      } else if (confirmAction.type === 'generateSessions') {
+        await handleGenerateSessions(confirmAction.student);
+        return; // already handles setConfirmAction
       }
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
@@ -217,7 +282,8 @@ const Students = () => {
               return (
                 <motion.div key={student.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -100 }} transition={{ delay: i * 0.05 }}
-                  className="glass rounded-2xl p-4 relative overflow-hidden">
+                  className="glass rounded-2xl p-4 relative overflow-hidden cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all"
+                  onClick={() => openEdit(student)}>
                   <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ backgroundColor: student.color || '#10b981' }} />
                   <div className="flex items-center gap-3 ml-2">
                     <div className="h-11 w-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
@@ -240,36 +306,48 @@ const Students = () => {
                       </div>
                     </div>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                          <MoreVertical className="h-4 w-4" />
+                    {/* Quick action buttons */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {student.phone && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={(e) => { e.stopPropagation(); openWhatsApp(student.phone!, `Olá ${student.name}, tudo bem?`); }}>
+                          <MessageCircle className="h-4 w-4" />
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(student)}>
-                          <Edit className="h-4 w-4 mr-2" /> Editar
-                        </DropdownMenuItem>
-                        {student.phone && (
-                          <DropdownMenuItem onClick={() => openWhatsApp(student.phone!, `Olá ${student.name}, tudo bem?`)}>
-                            <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(student); }}>
+                            <Edit className="h-4 w-4 mr-2" /> Editar
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        {student.status === 'active' && (
-                          <DropdownMenuItem onClick={() => setConfirmAction({ type: 'inactivate', student })}>
-                            <UserX className="h-4 w-4 mr-2" /> Inativar
+                          {student.phone && (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openWhatsApp(student.phone!, `Olá ${student.name}, tudo bem?`); }}>
+                              <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'generateSessions', student }); }}>
+                            <CalendarPlus className="h-4 w-4 mr-2" /> Gerar sessões (4 semanas)
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => setConfirmAction({ type: 'deleteSessions', student })}>
-                          <CalendarX2 className="h-4 w-4 mr-2" /> Excluir sessões futuras
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(student.id)}>
-                          <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {student.status === 'active' && (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'inactivate', student }); }}>
+                              <UserX className="h-4 w-4 mr-2" /> Inativar
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'deleteSessions', student }); }}>
+                            <CalendarX2 className="h-4 w-4 mr-2" /> Excluir sessões futuras
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(student.id); }}>
+                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
                   {student.plan_type && (
@@ -308,18 +386,23 @@ const Students = () => {
           <AlertDialogContent className="glass rounded-2xl">
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {confirmAction?.type === 'inactivate' ? 'Inativar Aluno' : 'Excluir Sessões Futuras'}
+                {confirmAction?.type === 'inactivate' ? 'Inativar Aluno'
+                  : confirmAction?.type === 'deleteSessions' ? 'Excluir Sessões Futuras'
+                  : 'Gerar Sessões Recorrentes'}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {confirmAction?.type === 'inactivate'
                   ? `${confirmAction.student.name} será inativado e todas as cobranças pendentes/atrasadas serão removidas. Continuar?`
-                  : `Todas as sessões futuras de ${confirmAction?.student.name} serão removidas. Continuar?`}
+                  : confirmAction?.type === 'deleteSessions'
+                  ? `Todas as sessões futuras de ${confirmAction?.student.name} serão removidas. Continuar?`
+                  : `Serão criadas sessões para ${confirmAction?.student.name} nas próximas 4 semanas com base nos dias/horários configurados. Continuar?`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmAction} className="rounded-xl gradient-primary text-primary-foreground">
-                Confirmar
+              <AlertDialogCancel className="rounded-xl" disabled={generating}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmAction} disabled={generating}
+                className="rounded-xl gradient-primary text-primary-foreground">
+                {generating ? 'Gerando...' : 'Confirmar'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -387,7 +470,7 @@ const Students = () => {
                 </div>
               )}
 
-              {/* Frequency + schedule config */}
+              {/* Frequency */}
               <div>
                 <Label className="text-muted-foreground text-xs">Frequência semanal</Label>
                 <div className="flex gap-1.5 mt-1.5">
@@ -405,7 +488,15 @@ const Students = () => {
 
               {/* Schedule entries */}
               <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">Dias e horários</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-muted-foreground text-xs">Dias e horários</Label>
+                  {scheduleConfig.length > 1 && (
+                    <button type="button" onClick={setAllTimesEqual}
+                      className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-medium transition-colors">
+                      <Copy className="h-3 w-3" /> Mesmo horário para todos
+                    </button>
+                  )}
+                </div>
                 {scheduleConfig.map((entry, idx) => (
                   <div key={idx} className="flex gap-2 items-center">
                     <Select value={entry.day} onValueChange={(v) => updateScheduleEntry(idx, 'day', v)}>
