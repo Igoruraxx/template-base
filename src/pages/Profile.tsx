@@ -4,13 +4,17 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStudents, useUpdateStudent } from '@/hooks/useStudents';
+import { useTrainerSubscription } from '@/hooks/useTrainerSubscription';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { StudentLimitModal } from '@/components/StudentLimitModal';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, User, Key, Copy, Shield, FileText, MessageCircle } from 'lucide-react';
+import { LogOut, User, Key, Copy, Shield, FileText, MessageCircle, Crown, Clock } from 'lucide-react';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +24,9 @@ const Profile = () => {
   const { data: students } = useStudents();
   const updateStudent = useUpdateStudent();
   const { toast } = useToast();
+  const { plan, isPremium, isPendingPix, slotsUsed, slotsTotal, isNearLimit, status } = useTrainerSubscription();
   const [codeDialog, setCodeDialog] = useState(false);
+  const [upgradeModal, setUpgradeModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<string>('');
   const [accessCode, setAccessCode] = useState('');
 
@@ -138,6 +144,54 @@ const Profile = () => {
           </Button>
         </motion.div>
 
+        {/* Subscription panel */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className="glass rounded-2xl p-6 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              {isPremium ? <Crown className="h-5 w-5 text-yellow-400" /> : <Shield className="h-5 w-5 text-primary" />}
+              <h2 className="text-lg font-semibold">Meu Plano</h2>
+            </div>
+            <Badge variant={isPremium ? 'default' : 'secondary'} className={isPremium ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : ''}>
+              {isPremium ? 'Premium' : 'Gratuito'}
+            </Badge>
+          </div>
+
+          {isPendingPix && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-4">
+              <Clock className="h-4 w-4 text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-300">Pagamento PIX aguardando confirmação do admin.</p>
+            </div>
+          )}
+
+          {isPremium ? (
+            <div className="text-center py-2">
+              <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+                <Crown className="h-4 w-4 text-yellow-400" />
+                <span>Alunos ativos ilimitados</span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Alunos ativos</span>
+                <span className="font-semibold">{slotsUsed}/{slotsTotal}</span>
+              </div>
+              <Progress
+                value={(slotsUsed / (slotsTotal || 1)) * 100}
+                className={`h-2.5 ${slotsUsed >= slotsTotal ? '[&>div]:bg-destructive' : isNearLimit ? '[&>div]:bg-yellow-400' : '[&>div]:bg-primary'}`}
+              />
+            </div>
+          )}
+
+          {!isPremium && (
+            <Button onClick={() => setUpgradeModal(true)}
+              className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold mt-4">
+              <Crown className="h-4 w-4 mr-2" /> Fazer Upgrade
+            </Button>
+          )}
+        </motion.div>
+
         {/* Tools */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           className="mt-4 space-y-3">
@@ -224,6 +278,8 @@ const Profile = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      <StudentLimitModal open={upgradeModal} onOpenChange={setUpgradeModal} isPendingPix={isPendingPix} />
     </AppLayout>
   );
 };
