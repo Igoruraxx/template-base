@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { format } from 'date-fns';
 
 type Session = Tables<'sessions'>;
 type SessionInsert = TablesInsert<'sessions'>;
@@ -15,7 +16,7 @@ export const useSessions = (date?: string) => {
     queryFn: async () => {
       let query = supabase
         .from('sessions')
-        .select('*, students(name, color, avatar_url)')
+        .select('*, students(name, color, avatar_url, needs_reminder, phone)')
         .order('scheduled_time');
 
       if (date) {
@@ -38,7 +39,7 @@ export const useSessionsByRange = (startDate: string, endDate: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sessions')
-        .select('*, students(name, color, avatar_url)')
+        .select('*, students(name, color, avatar_url, needs_reminder, phone)')
         .gte('scheduled_date', startDate)
         .lte('scheduled_date', endDate)
         .order('scheduled_date')
@@ -79,6 +80,22 @@ export const useDeleteSession = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('sessions').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+  });
+};
+
+export const useDeleteFutureSessions = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (studentId: string) => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const { error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('student_id', studentId)
+        .gte('scheduled_date', today);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),

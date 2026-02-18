@@ -75,3 +75,29 @@ export const useDeleteStudent = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['students'] }),
   });
 };
+
+export const useInactivateStudent = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (studentId: string) => {
+      // Delete non-paid payments
+      const { error: payError } = await supabase
+        .from('payments')
+        .delete()
+        .eq('student_id', studentId)
+        .neq('status', 'paid');
+      if (payError) throw payError;
+
+      // Update status to inactive
+      const { error } = await supabase
+        .from('students')
+        .update({ status: 'inactive' })
+        .eq('id', studentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['students'] });
+      qc.invalidateQueries({ queryKey: ['payments'] });
+    },
+  });
+};

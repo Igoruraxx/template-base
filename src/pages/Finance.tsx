@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { format, parseISO } from 'date-fns';
+import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStudents } from '@/hooks/useStudents';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, Plus, Check, Clock, AlertTriangle, Trash2, Filter, MessageCircle } from 'lucide-react';
+import { DollarSign, Plus, Check, Clock, AlertTriangle, Trash2, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { cn } from '@/lib/utils';
 
@@ -21,11 +21,6 @@ const STATUS_MAP: Record<string, { label: string; icon: any; className: string }
   pending: { label: 'Pendente', icon: Clock, className: 'text-amber-400 bg-amber-400/10' },
   overdue: { label: 'Atrasado', icon: AlertTriangle, className: 'text-destructive bg-destructive/10' },
 };
-
-const MONTHS = Array.from({ length: 12 }, (_, i) => {
-  const d = new Date(2025, i);
-  return { value: format(d, 'yyyy-MM'), label: format(d, 'MMMM yyyy', { locale: ptBR }) };
-});
 
 const Finance = () => {
   const { user } = useAuth();
@@ -38,27 +33,44 @@ const Finance = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [viewMonth, setViewMonth] = useState(new Date());
+  const viewMonthStr = format(viewMonth, 'yyyy-MM');
   const [form, setForm] = useState({
     student_id: '', amount: '', reference_month: format(new Date(), 'yyyy-MM'),
     status: 'pending', payment_method: '', notes: '',
   });
 
-  const filtered = useMemo(() => {
+  // All payments for the viewed month
+  const monthPayments = useMemo(() => {
     if (!payments) return [];
-    if (filterStatus === 'all') return payments;
-    return payments.filter((p: any) => p.status === filterStatus);
-  }, [payments, filterStatus]);
+    return payments.filter((p: any) => p.reference_month === viewMonthStr);
+  }, [payments, viewMonthStr]);
+
+  const filtered = useMemo(() => {
+    if (filterStatus === 'all') return monthPayments;
+    return monthPayments.filter((p: any) => p.status === filterStatus);
+  }, [monthPayments, filterStatus]);
+
+  // Expected revenue from active students
+  const activeStudentsWithValue = useMemo(() => {
+    if (!students) return [];
+    return students.filter(s => s.status === 'active' && s.plan_value);
+  }, [students]);
+
+  const expectedTotal = useMemo(() => {
+    return activeStudentsWithValue.reduce((sum, s) => sum + Number(s.plan_value || 0), 0);
+  }, [activeStudentsWithValue]);
 
   const summary = useMemo(() => {
-    if (!payments) return { total: 0, paid: 0, pending: 0 };
-    const currentMonth = format(new Date(), 'yyyy-MM');
-    const monthPayments = payments.filter((p: any) => p.reference_month === currentMonth);
-    return {
-      total: monthPayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0),
-      paid: monthPayments.filter((p: any) => p.status === 'paid').reduce((sum: number, p: any) => sum + Number(p.amount), 0),
-      pending: monthPayments.filter((p: any) => p.status !== 'paid').reduce((sum: number, p: any) => sum + Number(p.amount), 0),
-    };
-  }, [payments]);
+    const total = monthPayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+    const paid = monthPayments.filter((p: any) => p.status === 'paid').reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+    return { total, paid, pending: total - paid };
+  }, [monthPayments]);
+
+  // Which students already paid this month
+  const paidStudentIds = useMemo(() => {
+    return new Set(monthPayments.filter((p: any) => p.status === 'paid').map((p: any) => p.student_id));
+  }, [monthPayments]);
 
   const handleSave = async () => {
     if (!form.student_id || !form.amount) return toast({ title: 'Preencha aluno e valor', variant: 'destructive' });
@@ -102,6 +114,20 @@ const Finance = () => {
           </Button>
         </motion.div>
 
+        {/* Month navigation */}
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewMonth(prev => subMonths(prev, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <button onClick={() => setViewMonth(new Date())}
+            className="text-sm font-semibold px-3 py-1 rounded-lg hover:bg-muted transition-colors capitalize">
+            {format(viewMonth, 'MMMM yyyy', { locale: ptBR })}
+          </button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewMonth(prev => addMonths(prev, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-2 mb-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
@@ -121,6 +147,36 @@ const Finance = () => {
           </motion.div>
         </div>
 
+        {/* Expected revenue */}
+        {activeStudentsWithValue.length > 0 && (
+          <div className="glass rounded-xl p-3 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-muted-foreground">Previsão de recebimentos</p>
+              <p className="text-sm font-bold">R$ {expectedTotal.toFixed(0)}</p>
+            </div>
+            <div className="space-y-1.5">
+              {activeStudentsWithValue.map(s => {
+                const hasPaid = paidStudentIds.has(s.id);
+                return (
+                  <div key={s.id} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold"
+                        style={{ backgroundColor: s.color || '#10b981' }}>
+                        {s.name.slice(0, 1)}
+                      </div>
+                      <span className={hasPaid ? 'text-muted-foreground line-through' : ''}>{s.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={hasPaid ? 'text-muted-foreground' : ''}>R$ {Number(s.plan_value).toFixed(0)}</span>
+                      {hasPaid && <Check className="h-3.5 w-3.5 text-primary" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Filter */}
         <div className="flex gap-1 mb-4">
           {['all', 'paid', 'pending', 'overdue'].map(s => (
@@ -139,8 +195,7 @@ const Finance = () => {
             const Icon = st.icon;
             return (
               <motion.div key={payment.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }}
-                className="glass rounded-xl p-3">
+                transition={{ delay: i * 0.03 }} className="glass rounded-xl p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <button onClick={() => togglePaid(payment)}
@@ -174,7 +229,7 @@ const Finance = () => {
           {filtered.length === 0 && (
             <div className="glass rounded-2xl p-8 flex flex-col items-center text-center">
               <DollarSign className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Nenhum pagamento registrado</p>
+              <p className="text-sm text-muted-foreground">Nenhum pagamento neste mês</p>
             </div>
           )}
         </div>
