@@ -129,7 +129,7 @@ const Progress = () => {
     'Massa Musc. (kg)': r.muscle_mass ? Number(r.muscle_mass) : null,
   })) || [];
 
-  const activeStudents = students?.filter(s => s.status === 'active') || [];
+  const availableStudents = students?.filter(s => s.status !== 'inactive') || [];
 
   return (
     <AppLayout>
@@ -145,7 +145,7 @@ const Progress = () => {
               <SelectValue placeholder="Selecione um aluno" />
             </SelectTrigger>
             <SelectContent>
-              {activeStudents.map(s => (
+              {availableStudents.map(s => (
                 <SelectItem key={s.id} value={s.id}>
                   <span className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color || '#10b981' }} />
