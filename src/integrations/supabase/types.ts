@@ -44,15 +44,155 @@ export type Database = {
         }
         Relationships: []
       }
+      sessions: {
+        Row: {
+          created_at: string
+          duration_minutes: number | null
+          id: string
+          location: string | null
+          muscle_groups: string[] | null
+          notes: string | null
+          scheduled_date: string
+          scheduled_time: string
+          status: string | null
+          student_id: string
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          location?: string | null
+          muscle_groups?: string[] | null
+          notes?: string | null
+          scheduled_date: string
+          scheduled_time: string
+          status?: string | null
+          student_id: string
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          location?: string | null
+          muscle_groups?: string[] | null
+          notes?: string | null
+          scheduled_date?: string
+          scheduled_time?: string
+          status?: string | null
+          student_id?: string
+          trainer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          avatar_url: string | null
+          color: string | null
+          created_at: string
+          email: string | null
+          goal: string | null
+          id: string
+          is_consulting: boolean | null
+          name: string
+          notes: string | null
+          package_total_sessions: number | null
+          package_used_sessions: number | null
+          phone: string | null
+          plan_type: string | null
+          plan_value: number | null
+          sessions_per_week: number | null
+          status: string | null
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          color?: string | null
+          created_at?: string
+          email?: string | null
+          goal?: string | null
+          id?: string
+          is_consulting?: boolean | null
+          name: string
+          notes?: string | null
+          package_total_sessions?: number | null
+          package_used_sessions?: number | null
+          phone?: string | null
+          plan_type?: string | null
+          plan_value?: number | null
+          sessions_per_week?: number | null
+          status?: string | null
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          color?: string | null
+          created_at?: string
+          email?: string | null
+          goal?: string | null
+          id?: string
+          is_consulting?: boolean | null
+          name?: string
+          notes?: string | null
+          package_total_sessions?: number | null
+          package_used_sessions?: number | null
+          phone?: string | null
+          plan_type?: string | null
+          plan_value?: number | null
+          sessions_per_week?: number | null
+          status?: string | null
+          trainer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "trainer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -179,6 +319,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "trainer"],
+    },
   },
 } as const
