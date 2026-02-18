@@ -5,10 +5,7 @@ import { useStudents } from '@/hooks/useStudents';
 
 const FREE_LIMIT = 5;
 
-// TODO: Replace with your actual Stripe price ID
-// Create product "FitPro Premium" (R$ 9,90/month) in Stripe Dashboard
-// and paste the price_id here
-export const PREMIUM_PRICE_ID = 'price_REPLACE_ME';
+export const PREMIUM_PRICE_ID = 'price_1T2EpE4IbA07mncZO9vtAOge';
 
 export const useTrainerSubscription = () => {
   const { user } = useAuth();
@@ -23,7 +20,7 @@ export const useTrainerSubscription = () => {
         .from('trainer_subscriptions')
         .select('*')
         .eq('trainer_id', user!.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
