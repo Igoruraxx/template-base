@@ -7,7 +7,7 @@ export const usePayments = (studentId?: string) => {
   return useQuery({
     queryKey: ['payments', user?.id, studentId],
     queryFn: async () => {
-      let query = supabase.from('payments').select('*, students(name, color)').order('reference_month', { ascending: false });
+      let query = supabase.from('payments').select('*, students(name, color, phone)').order('reference_month', { ascending: false });
       if (studentId) query = query.eq('student_id', studentId);
       const { data, error } = await query;
       if (error) throw error;

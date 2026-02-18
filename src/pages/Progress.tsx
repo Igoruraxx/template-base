@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStudents } from '@/hooks/useStudents';
-import { useProgressPhotos, useUploadProgressPhoto, useDeleteProgressPhoto } from '@/hooks/useProgressPhotos';
+import { useProgressPhotos, useDeleteProgressPhoto } from '@/hooks/useProgressPhotos';
 import { useBioimpedance, useCreateBioimpedance, useDeleteBioimpedance } from '@/hooks/useBioimpedance';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/AppLayout';
@@ -12,10 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Upload, TrendingUp, Trash2, X, Image, FileText, Plus } from 'lucide-react';
+import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, ScanLine } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { MultiPhotoUpload } from '@/components/MultiPhotoUpload';
+import { fileToBase64 } from '@/lib/imageUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 const PHOTO_TYPES = [
   { value: 'front', label: 'Frente' },
@@ -31,24 +34,16 @@ const Progress = () => {
 
   const [selectedStudent, setSelectedStudent] = useState<string>('');
   const [tab, setTab] = useState('photos');
-  const [photoDialog, setPhotoDialog] = useState(false);
+  const [multiPhotoOpen, setMultiPhotoOpen] = useState(false);
   const [bioDialog, setBioDialog] = useState(false);
+  const [ocrDialog, setOcrDialog] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const { data: photos } = useProgressPhotos(selectedStudent || undefined);
   const { data: bioRecords } = useBioimpedance(selectedStudent || undefined);
-  const uploadPhoto = useUploadProgressPhoto();
   const deletePhoto = useDeleteProgressPhoto();
   const createBio = useCreateBioimpedance();
   const deleteBio = useDeleteBioimpedance();
-
-  // Photo form
-  const [photoForm, setPhotoForm] = useState({
-    file: null as File | null,
-    photoType: 'front',
-    takenAt: format(new Date(), 'yyyy-MM-dd'),
-    notes: '',
-  });
 
   // Bio form
   const [bioForm, setBioForm] = useState({
@@ -57,21 +52,40 @@ const Progress = () => {
     bmr: '', bodyWaterPct: '', boneMass: '', reportFile: null as File | null, notes: '',
   });
 
-  const handleUploadPhoto = async () => {
-    if (!photoForm.file || !selectedStudent) return;
+  // OCR state
+  const [ocrFile, setOcrFile] = useState<File | null>(null);
+  const [ocrPreview, setOcrPreview] = useState<string | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrExtracted, setOcrExtracted] = useState(false);
+
+  const handleOcrExtract = async () => {
+    if (!ocrFile) return;
+    setOcrLoading(true);
     try {
-      await uploadPhoto.mutateAsync({
-        studentId: selectedStudent,
-        file: photoForm.file,
-        photoType: photoForm.photoType,
-        takenAt: photoForm.takenAt,
-        notes: photoForm.notes,
+      const base64 = await fileToBase64(ocrFile);
+      const { data, error } = await supabase.functions.invoke('extract-bioimpedance', {
+        body: { imageBase64: base64 },
       });
-      toast({ title: 'Foto enviada!' });
-      setPhotoDialog(false);
-      setPhotoForm({ file: null, photoType: 'front', takenAt: format(new Date(), 'yyyy-MM-dd'), notes: '' });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const d = data?.data || {};
+      setBioForm(prev => ({
+        ...prev,
+        weight: d.weight?.toString() || prev.weight,
+        bodyFatPct: d.body_fat_pct?.toString() || prev.bodyFatPct,
+        muscleMass: d.muscle_mass?.toString() || prev.muscleMass,
+        visceralFat: d.visceral_fat?.toString() || prev.visceralFat,
+        bmr: d.bmr?.toString() || prev.bmr,
+        bodyWaterPct: d.body_water_pct?.toString() || prev.bodyWaterPct,
+        boneMass: d.bone_mass?.toString() || prev.boneMass,
+        reportFile: ocrFile,
+      }));
+      setOcrExtracted(true);
+      toast({ title: 'Valores extraídos! Revise e confirme.' });
     } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+      toast({ title: 'Erro na extração', description: err.message, variant: 'destructive' });
+    } finally {
+      setOcrLoading(false);
     }
   };
 
@@ -93,10 +107,18 @@ const Progress = () => {
       });
       toast({ title: 'Registro salvo!' });
       setBioDialog(false);
-      setBioForm({ measuredAt: format(new Date(), 'yyyy-MM-dd'), weight: '', bodyFatPct: '', muscleMass: '', visceralFat: '', bmr: '', bodyWaterPct: '', boneMass: '', reportFile: null, notes: '' });
+      setOcrDialog(false);
+      resetBioForm();
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
     }
+  };
+
+  const resetBioForm = () => {
+    setBioForm({ measuredAt: format(new Date(), 'yyyy-MM-dd'), weight: '', bodyFatPct: '', muscleMass: '', visceralFat: '', bmr: '', bodyWaterPct: '', boneMass: '', reportFile: null, notes: '' });
+    setOcrFile(null);
+    setOcrPreview(null);
+    setOcrExtracted(false);
   };
 
   const chartData = bioRecords?.map(r => ({
@@ -116,7 +138,6 @@ const Progress = () => {
           <p className="text-muted-foreground text-sm mt-0.5">Fotos e bioimpedância</p>
         </motion.div>
 
-        {/* Student selector */}
         <div className="mt-4 mb-4">
           <Select value={selectedStudent} onValueChange={setSelectedStudent}>
             <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-11">
@@ -148,8 +169,8 @@ const Progress = () => {
 
             <TabsContent value="photos">
               <div className="flex justify-end mb-3">
-                <Button onClick={() => setPhotoDialog(true)} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
-                  <Upload className="h-4 w-4 mr-1" /> Enviar foto
+                <Button onClick={() => setMultiPhotoOpen(true)} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
+                  <Camera className="h-4 w-4 mr-1" /> Nova medição visual
                 </Button>
               </div>
 
@@ -165,6 +186,7 @@ const Progress = () => {
                           <p className="text-white text-[10px]">
                             {PHOTO_TYPES.find(t => t.value === photo.photo_type)?.label} • {format(parseISO(photo.taken_at), 'dd/MM/yy')}
                           </p>
+                          {photo.notes && <p className="text-white/70 text-[9px] mt-0.5 truncate">{photo.notes}</p>}
                         </div>
                         <button onClick={(e) => { e.stopPropagation(); deletePhoto.mutate(photo.id); }}
                           className="absolute top-2 right-2 text-white/80 hover:text-white">
@@ -183,13 +205,15 @@ const Progress = () => {
             </TabsContent>
 
             <TabsContent value="bio">
-              <div className="flex justify-end mb-3">
-                <Button onClick={() => setBioDialog(true)} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
-                  <Plus className="h-4 w-4 mr-1" /> Novo registro
+              <div className="flex justify-end gap-2 mb-3">
+                <Button onClick={() => { resetBioForm(); setOcrDialog(true); }} size="sm" variant="outline" className="rounded-xl">
+                  <ScanLine className="h-4 w-4 mr-1" /> Por foto
+                </Button>
+                <Button onClick={() => { resetBioForm(); setBioDialog(true); }} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
+                  <Plus className="h-4 w-4 mr-1" /> Manual
                 </Button>
               </div>
 
-              {/* Chart */}
               {chartData.length > 1 && (
                 <div className="glass rounded-2xl p-4 mb-4">
                   <h3 className="text-sm font-semibold mb-3">Evolução</h3>
@@ -208,7 +232,6 @@ const Progress = () => {
                 </div>
               )}
 
-              {/* Records */}
               <div className="space-y-2">
                 {bioRecords?.slice().reverse().map(record => (
                   <motion.div key={record.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -264,52 +287,77 @@ const Progress = () => {
           )}
         </AnimatePresence>
 
-        {/* Photo upload dialog */}
-        <Dialog open={photoDialog} onOpenChange={setPhotoDialog}>
-          <DialogContent className="glass max-w-md rounded-2xl">
+        {/* Multi photo upload */}
+        {selectedStudent && (
+          <MultiPhotoUpload open={multiPhotoOpen} onOpenChange={setMultiPhotoOpen} studentId={selectedStudent} />
+        )}
+
+        {/* OCR Bio Dialog */}
+        <Dialog open={ocrDialog} onOpenChange={(o) => { setOcrDialog(o); if (!o) resetBioForm(); }}>
+          <DialogContent className="glass max-w-md max-h-[85vh] overflow-y-auto rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Enviar Foto</DialogTitle>
-              <DialogDescription>Adicione uma foto de progresso</DialogDescription>
+              <DialogTitle className="flex items-center gap-2">
+                <ScanLine className="h-5 w-5 text-primary" /> Bioimpedância por Foto
+              </DialogTitle>
+              <DialogDescription>Tire foto da tela da balança para extrair os dados automaticamente</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-2">
               <div>
-                <Label className="text-muted-foreground text-xs">Foto *</Label>
-                <Input type="file" accept="image/*"
-                  onChange={(e) => setPhotoForm({ ...photoForm, file: e.target.files?.[0] || null })}
+                <Label className="text-muted-foreground text-xs">Data</Label>
+                <Input type="date" value={bioForm.measuredAt}
+                  onChange={(e) => setBioForm({ ...bioForm, measuredAt: e.target.value })}
                   className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-muted-foreground text-xs">Tipo</Label>
-                  <Select value={photoForm.photoType} onValueChange={(v) => setPhotoForm({ ...photoForm, photoType: v })}>
-                    <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PHOTO_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground text-xs">Data</Label>
-                  <Input type="date" value={photoForm.takenAt}
-                    onChange={(e) => setPhotoForm({ ...photoForm, takenAt: e.target.value })}
-                    className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-                </div>
-              </div>
-              <Button onClick={handleUploadPhoto} disabled={uploadPhoto.isPending || !photoForm.file}
-                className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold">
-                {uploadPhoto.isPending ? 'Enviando...' : 'Enviar foto'}
-              </Button>
+
+              {!ocrExtracted ? (
+                <>
+                  <div
+                    onClick={() => document.getElementById('ocr-input')?.click()}
+                    className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center cursor-pointer hover:border-primary/30 transition-colors"
+                  >
+                    {ocrPreview ? (
+                      <img src={ocrPreview} alt="Preview" className="max-h-48 rounded-lg object-contain" />
+                    ) : (
+                      <>
+                        <ScanLine className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Clique para selecionar a foto da balança</p>
+                      </>
+                    )}
+                    <input id="ocr-input" type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          setOcrFile(f);
+                          setOcrPreview(URL.createObjectURL(f));
+                        }
+                      }} />
+                  </div>
+                  <Button onClick={handleOcrExtract} disabled={!ocrFile || ocrLoading}
+                    className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold">
+                    {ocrLoading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Extraindo...</> : 'Extrair valores'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {ocrPreview && (
+                    <img src={ocrPreview} alt="Scale" className="max-h-32 rounded-lg object-contain mx-auto" />
+                  )}
+                  <BioFormFields bioForm={bioForm} setBioForm={setBioForm} />
+                  <Button onClick={handleCreateBio} disabled={createBio.isPending}
+                    className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold">
+                    {createBio.isPending ? 'Salvando...' : 'Confirmar e salvar'}
+                  </Button>
+                </>
+              )}
             </div>
           </DialogContent>
         </Dialog>
 
-        {/* Bioimpedance dialog */}
-        <Dialog open={bioDialog} onOpenChange={setBioDialog}>
+        {/* Manual Bio Dialog */}
+        <Dialog open={bioDialog} onOpenChange={(o) => { setBioDialog(o); if (!o) resetBioForm(); }}>
           <DialogContent className="glass max-w-md max-h-[85vh] overflow-y-auto rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Novo Registro</DialogTitle>
+              <DialogTitle>Novo Registro Manual</DialogTitle>
               <DialogDescription>Dados da bioimpedância</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 mt-2">
@@ -319,26 +367,7 @@ const Progress = () => {
                   onChange={(e) => setBioForm({ ...bioForm, measuredAt: e.target.value })}
                   className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-muted-foreground text-xs">Peso (kg)</Label>
-                  <Input type="number" step="0.1" value={bioForm.weight} onChange={(e) => setBioForm({ ...bioForm, weight: e.target.value })} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-                <div><Label className="text-muted-foreground text-xs">Gordura (%)</Label>
-                  <Input type="number" step="0.1" value={bioForm.bodyFatPct} onChange={(e) => setBioForm({ ...bioForm, bodyFatPct: e.target.value })} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-muted-foreground text-xs">Massa Muscular (kg)</Label>
-                  <Input type="number" step="0.1" value={bioForm.muscleMass} onChange={(e) => setBioForm({ ...bioForm, muscleMass: e.target.value })} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-                <div><Label className="text-muted-foreground text-xs">Gordura Visceral</Label>
-                  <Input type="number" step="0.1" value={bioForm.visceralFat} onChange={(e) => setBioForm({ ...bioForm, visceralFat: e.target.value })} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label className="text-muted-foreground text-xs">TMB (kcal)</Label>
-                  <Input type="number" value={bioForm.bmr} onChange={(e) => setBioForm({ ...bioForm, bmr: e.target.value })} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-                <div><Label className="text-muted-foreground text-xs">Água (%)</Label>
-                  <Input type="number" step="0.1" value={bioForm.bodyWaterPct} onChange={(e) => setBioForm({ ...bioForm, bodyWaterPct: e.target.value })} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-                <div><Label className="text-muted-foreground text-xs">M. Óssea (kg)</Label>
-                  <Input type="number" step="0.1" value={bioForm.boneMass} onChange={(e) => setBioForm({ ...bioForm, boneMass: e.target.value })} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-              </div>
+              <BioFormFields bioForm={bioForm} setBioForm={setBioForm} />
               <div>
                 <Label className="text-muted-foreground text-xs">Laudo (PDF/imagem)</Label>
                 <Input type="file" accept=".pdf,image/*"
@@ -356,5 +385,31 @@ const Progress = () => {
     </AppLayout>
   );
 };
+
+// Extracted bio form fields to avoid duplication
+const BioFormFields = ({ bioForm, setBioForm }: { bioForm: any; setBioForm: (fn: any) => void }) => (
+  <>
+    <div className="grid grid-cols-2 gap-3">
+      <div><Label className="text-muted-foreground text-xs">Peso (kg)</Label>
+        <Input type="number" step="0.1" value={bioForm.weight} onChange={(e) => setBioForm((p: any) => ({ ...p, weight: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
+      <div><Label className="text-muted-foreground text-xs">Gordura (%)</Label>
+        <Input type="number" step="0.1" value={bioForm.bodyFatPct} onChange={(e) => setBioForm((p: any) => ({ ...p, bodyFatPct: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      <div><Label className="text-muted-foreground text-xs">Massa Muscular (kg)</Label>
+        <Input type="number" step="0.1" value={bioForm.muscleMass} onChange={(e) => setBioForm((p: any) => ({ ...p, muscleMass: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
+      <div><Label className="text-muted-foreground text-xs">Gordura Visceral</Label>
+        <Input type="number" step="0.1" value={bioForm.visceralFat} onChange={(e) => setBioForm((p: any) => ({ ...p, visceralFat: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
+    </div>
+    <div className="grid grid-cols-3 gap-3">
+      <div><Label className="text-muted-foreground text-xs">TMB (kcal)</Label>
+        <Input type="number" value={bioForm.bmr} onChange={(e) => setBioForm((p: any) => ({ ...p, bmr: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
+      <div><Label className="text-muted-foreground text-xs">Água (%)</Label>
+        <Input type="number" step="0.1" value={bioForm.bodyWaterPct} onChange={(e) => setBioForm((p: any) => ({ ...p, bodyWaterPct: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
+      <div><Label className="text-muted-foreground text-xs">M. Óssea (kg)</Label>
+        <Input type="number" step="0.1" value={bioForm.boneMass} onChange={(e) => setBioForm((p: any) => ({ ...p, boneMass: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
+    </div>
+  </>
+);
 
 export default Progress;
