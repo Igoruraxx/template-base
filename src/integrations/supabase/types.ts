@@ -322,6 +322,42 @@ export type Database = {
         }
         Relationships: []
       }
+      trainer_subscriptions: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          plan: string
+          price: number | null
+          started_at: string | null
+          status: string
+          trainer_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          plan?: string
+          price?: number | null
+          started_at?: string | null
+          status?: string
+          trainer_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          plan?: string
+          price?: number | null
+          started_at?: string | null
+          status?: string
+          trainer_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -345,6 +381,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_trainer_overview: {
+        Args: never
+        Returns: {
+          active_students: number
+          created_at: string
+          email: string
+          full_name: string
+          plan: string
+          sub_status: string
+          user_id: string
+        }[]
+      }
       get_student_by_code: {
         Args: { _code: string }
         Returns: {
