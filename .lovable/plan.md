@@ -1,57 +1,66 @@
-## Relatorio PDF com Fotos + Aba Relatorio no Cadastro do Aluno
 
-Duas mudancas principais: incluir as fotos de progresso no PDF da avaliacao e mover/adicionar a aba de relatorio (avaliacao) dentro do cadastro do aluno.
+## PDF de Bioimpedancia com Fotos + Logo em Todo o App
 
----
-
-### 1. Fotos no PDF da Avaliacao
-
-Ao gerar o PDF, as fotos de progresso do aluno serao buscadas e agrupadas por data. Para cada data, as fotos aparecem lado a lado (frente, lado, costas) em uma nova pagina do PDF.
-
-**Fluxo:**
-
-- A funcao `generateAssessmentPdf` passara a receber as fotos do aluno como parametro
-- As fotos sao agrupadas por `taken_at` (data)
-- Para cada data, ate 3 fotos sao posicionadas lado a lado na pagina (largura ~55mm cada)
-- As imagens sao carregadas via fetch, convertidas para base64, e inseridas com `doc.addImage()`
-- A secao de fotos fica apos os dados da avaliacao, em pagina(s) separada(s)
+Tres mudancas: (1) criar gerador de PDF para bioimpedancia com comparativo e fotos de progresso, (2) substituir a logo do app pela imagem enviada em todos os lugares, (3) usar a logo no cabecalho do PDF.
 
 ---
 
-### 2. Aba Relatorio no Cadastro do Aluno
+### 1. PDF de Bioimpedancia com Fotos
 
-Atualmente o cadastro do aluno e um Dialog simples com formulario. A proposta e transformar esse dialog em um layout com abas quando estiver editando um aluno existente:
+Um botao de download sera adicionado em cada card de bioimpedancia na aba "Bio" da pagina de Progresso. O PDF gerado contera:
 
-- **Aba "Dados"**: formulario atual (nome, telefone, plano, etc.)
-- **Aba "Relatorio"**: componente `AssessmentTab` com graficos, lista de avaliacoes e botao de nova avaliacao
+- **Cabecalho**: Logo do app + nome do aluno + data
+- **Dados da Bioimpedancia**: Peso, Gordura (%), Massa Muscular, Gordura Visceral, TMB, Agua Corporal (%), Massa Ossea
+- **Comparativo**: Se houver mais de um registro, mostra uma tabela comparando o primeiro e o ultimo registro com as diferencas (setas para cima/baixo)
+- **Fotos de Progresso**: Agrupadas por data, lado a lado (ate 3 por linha), em paginas separadas -- mesma logica que ja existe no PDF de avaliacao
 
-Quando for um novo aluno (criacao), o dialog mostra apenas o formulario sem abas.
+---
 
-&nbsp;
+### 2. Logo em Todo o App
 
-Criar um icone bonito disruptivo para o aplicativo para quando transformar em pwa. Ja prepare o app para se transformar em pwa 
+A imagem enviada (relogio com braco musculoso) sera copiada para `src/assets/logo.png` e usada em:
+
+- **Tela de Login (Auth.tsx)**: Substituir o icone Dumbbell pela imagem
+- **Loading Screen**: Substituir o icone Dumbbell pela imagem
+- **Portal do Aluno**: Substituir o icone Dumbbell pela imagem
+- **PWA Icons**: Copiar para `public/icon-192.png` e `public/icon-512.png`
+- **Cabecalho do PDF**: Inserir a logo no topo do relatorio
 
 ---
 
 ### Secao Tecnica
 
-`**src/lib/generateAssessmentPdf.ts**`
+**Novo arquivo: `src/lib/generateBioimpedancePdf.ts`**
+- Funcao `async generateBioimpedancePdf(records, studentName, photos?)`
+- Recebe array de registros de bioimpedancia (tipo da tabela `bioimpedance`)
+- Cabecalho com logo (carregada de `/icon-192.png` via base64) + nome + data
+- Secao de dados do registro selecionado
+- Secao comparativa: tabela com colunas "Primeiro | Atual | Diferenca" mostrando evolucao de cada metrica
+- Secao de fotos: reutiliza a mesma logica de `loadImageAsBase64` e agrupamento por data do `generateAssessmentPdf.ts`
+- Download automatico do arquivo
 
-- Adicionar parametro `photos` (array de `{ photo_url, photo_type, taken_at }`)
-- Criar funcao auxiliar `loadImageAsBase64(url)` que faz fetch da imagem e converte para base64 via canvas
-- Agrupar fotos por `taken_at`
-- Para cada grupo de data, adicionar nova pagina com titulo da data e as fotos lado a lado (ate 3 por linha, ~55mm de largura cada)
-- A funcao passa a ser `async` pois precisa carregar as imagens
+**Arquivo modificado: `src/pages/Progress.tsx`**
+- Importar `generateBioimpedancePdf` e `useProgressPhotos` (ja importado)
+- Adicionar icone `FileDown` em cada card de bioimpedancia
+- Ao clicar, chamar a funcao passando todos os registros do aluno + fotos
 
-`**src/components/AssessmentTab.tsx**`
+**Arquivo modificado: `src/pages/Auth.tsx`**
+- Importar `logo` de `@/assets/logo.png`
+- Substituir `<Dumbbell>` por `<img src={logo}>` na area do logo
 
-- Atualizar o botao de gerar PDF para buscar as fotos do aluno (usando `useProgressPhotos`) e passa-las para `generateAssessmentPdf`
-- Importar o hook `useProgressPhotos`
+**Arquivo modificado: `src/components/LoadingScreen.tsx`**
+- Importar `logo` de `@/assets/logo.png`
+- Substituir `<Dumbbell>` por `<img src={logo}>` com animacao mantida
 
-`**src/pages/Students.tsx**`
+**Arquivo modificado: `src/pages/StudentPortal.tsx`**
+- Importar `logo` de `@/assets/logo.png`
+- Substituir `<Dumbbell>` por `<img src={logo}>`
 
-- No Dialog de edicao: quando `editingStudent` existir, envolver o conteudo em `Tabs` com duas abas ("Dados" e "Relatorio")
-- A aba "Dados" contem o formulario existente
-- A aba "Relatorio" renderiza `<AssessmentTab studentId={editingStudent.id} studentName={editingStudent.name} />`
-- Quando for novo aluno (`!editingStudent`), mostra apenas o formulario sem abas
-- Importar `Tabs, TabsContent, TabsList, TabsTrigger` e `AssessmentTab`
+**Arquivo copiado: logo para `src/assets/logo.png`**
+- Imagem enviada pelo usuario
+
+**Arquivos copiados: `public/icon-192.png` e `public/icon-512.png`**
+- Mesma imagem para os icones PWA
+
+**Arquivo modificado: `src/lib/generateAssessmentPdf.ts`**
+- Adicionar logo no cabecalho do PDF de avaliacao fisica tambem (consistencia)
