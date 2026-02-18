@@ -122,7 +122,16 @@ export const MultiPhotoUpload = ({ open, onOpenChange, studentId }: Props) => {
               <div key={key} className="space-y-1.5">
                 <p className="text-xs font-medium text-center text-muted-foreground">{label}</p>
                 <div
-                  onClick={() => !slots[key].file && inputRefs.current[key]?.click()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!slots[key].file) {
+                      const input = inputRefs.current[key];
+                      if (input) {
+                        input.value = '';
+                        input.click();
+                      }
+                    }
+                  }}
                   className={`relative aspect-[3/4] rounded-xl border-2 border-dashed transition-colors cursor-pointer flex items-center justify-center overflow-hidden ${
                     slots[key].file ? 'border-primary/50' : 'border-border/50 hover:border-primary/30 bg-muted/30'
                   }`}
@@ -144,6 +153,7 @@ export const MultiPhotoUpload = ({ open, onOpenChange, studentId }: Props) => {
                     </div>
                   )}
                   <input
+                    key={key}
                     ref={el => { inputRefs.current[key] = el; }}
                     type="file"
                     accept="image/*"
