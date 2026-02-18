@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, ScanLine, ArrowLeftRight, ClipboardList, FileDown } from 'lucide-react';
+import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, Upload, ArrowLeftRight, ClipboardList, FileDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -223,7 +223,7 @@ const Progress = () => {
             <TabsContent value="bio">
               <div className="flex justify-end gap-2 mb-3">
                 <Button onClick={() => { resetBioForm(); setOcrDialog(true); }} size="sm" variant="outline" className="rounded-xl">
-                  <ScanLine className="h-4 w-4 mr-1" /> Por foto
+                  <Upload className="h-4 w-4 mr-1" /> Por arquivo
                 </Button>
                 <Button onClick={() => { resetBioForm(); setBioDialog(true); }} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
                   <Plus className="h-4 w-4 mr-1" /> Manual
@@ -331,9 +331,9 @@ const Progress = () => {
           <DialogContent className="glass max-w-md max-h-[85vh] overflow-y-auto rounded-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <ScanLine className="h-5 w-5 text-primary" /> Bioimpedância por Foto
+                <Upload className="h-5 w-5 text-primary" /> Bioimpedância por Arquivo
               </DialogTitle>
-              <DialogDescription>Tire foto da tela da balança para extrair os dados automaticamente</DialogDescription>
+              <DialogDescription>Envie o laudo da balança (PDF ou imagem) para extrair os dados automaticamente</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-2">
               <div>
@@ -349,20 +349,31 @@ const Progress = () => {
                     onClick={() => document.getElementById('ocr-input')?.click()}
                     className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center cursor-pointer hover:border-primary/30 transition-colors"
                   >
-                    {ocrPreview ? (
-                      <img src={ocrPreview} alt="Preview" className="max-h-48 rounded-lg object-contain" />
+                    {ocrFile ? (
+                      ocrFile.type === 'application/pdf' ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <FileText className="h-10 w-10 text-primary" />
+                          <p className="text-sm text-foreground font-medium">{ocrFile.name}</p>
+                        </div>
+                      ) : (
+                        <img src={ocrPreview!} alt="Preview" className="max-h-48 rounded-lg object-contain" />
+                      )
                     ) : (
                       <>
-                        <ScanLine className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Clique para selecionar a foto da balança</p>
+                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Clique para enviar o laudo ou imagem</p>
                       </>
                     )}
-                    <input id="ocr-input" type="file" accept="image/*" capture="environment" className="hidden"
+                    <input id="ocr-input" type="file" accept="image/*,.pdf" className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
                         if (f) {
                           setOcrFile(f);
-                          setOcrPreview(URL.createObjectURL(f));
+                          if (f.type !== 'application/pdf') {
+                            setOcrPreview(URL.createObjectURL(f));
+                          } else {
+                            setOcrPreview(null);
+                          }
                         }
                       }} />
                   </div>
