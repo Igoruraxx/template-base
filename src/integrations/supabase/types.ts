@@ -14,6 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessments: {
+        Row: {
+          age: number
+          body_density: number | null
+          body_fat_pct: number | null
+          created_at: string
+          fat_mass_kg: number | null
+          id: string
+          lean_mass_kg: number | null
+          measured_at: string
+          notes: string | null
+          perim_abdomen: number | null
+          perim_arm_contracted: number | null
+          perim_arm_relaxed: number | null
+          perim_calf: number | null
+          perim_chest: number | null
+          perim_forearm: number | null
+          perim_hip: number | null
+          perim_neck: number | null
+          perim_shoulder: number | null
+          perim_thigh_mid: number | null
+          perim_thigh_proximal: number | null
+          perim_waist: number | null
+          sex: string
+          skinfold_abdominal: number | null
+          skinfold_axillary: number | null
+          skinfold_chest: number | null
+          skinfold_subscapular: number | null
+          skinfold_suprailiac: number | null
+          skinfold_thigh: number | null
+          skinfold_triceps: number | null
+          student_id: string
+          sum_skinfolds: number | null
+          trainer_id: string
+          weight: number
+        }
+        Insert: {
+          age: number
+          body_density?: number | null
+          body_fat_pct?: number | null
+          created_at?: string
+          fat_mass_kg?: number | null
+          id?: string
+          lean_mass_kg?: number | null
+          measured_at?: string
+          notes?: string | null
+          perim_abdomen?: number | null
+          perim_arm_contracted?: number | null
+          perim_arm_relaxed?: number | null
+          perim_calf?: number | null
+          perim_chest?: number | null
+          perim_forearm?: number | null
+          perim_hip?: number | null
+          perim_neck?: number | null
+          perim_shoulder?: number | null
+          perim_thigh_mid?: number | null
+          perim_thigh_proximal?: number | null
+          perim_waist?: number | null
+          sex: string
+          skinfold_abdominal?: number | null
+          skinfold_axillary?: number | null
+          skinfold_chest?: number | null
+          skinfold_subscapular?: number | null
+          skinfold_suprailiac?: number | null
+          skinfold_thigh?: number | null
+          skinfold_triceps?: number | null
+          student_id: string
+          sum_skinfolds?: number | null
+          trainer_id: string
+          weight: number
+        }
+        Update: {
+          age?: number
+          body_density?: number | null
+          body_fat_pct?: number | null
+          created_at?: string
+          fat_mass_kg?: number | null
+          id?: string
+          lean_mass_kg?: number | null
+          measured_at?: string
+          notes?: string | null
+          perim_abdomen?: number | null
+          perim_arm_contracted?: number | null
+          perim_arm_relaxed?: number | null
+          perim_calf?: number | null
+          perim_chest?: number | null
+          perim_forearm?: number | null
+          perim_hip?: number | null
+          perim_neck?: number | null
+          perim_shoulder?: number | null
+          perim_thigh_mid?: number | null
+          perim_thigh_proximal?: number | null
+          perim_waist?: number | null
+          sex?: string
+          skinfold_abdominal?: number | null
+          skinfold_axillary?: number | null
+          skinfold_chest?: number | null
+          skinfold_subscapular?: number | null
+          skinfold_suprailiac?: number | null
+          skinfold_thigh?: number | null
+          skinfold_triceps?: number | null
+          student_id?: string
+          sum_skinfolds?: number | null
+          trainer_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bioimpedance: {
         Row: {
           bmr: number | null
