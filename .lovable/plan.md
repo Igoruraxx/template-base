@@ -1,100 +1,85 @@
 
-## Upload Multi-Foto, OCR de Bioimpedancia e WhatsApp
+## Melhorias na Aba Alunos, Agenda e Financeiro
 
-Este plano cobre 3 grandes funcionalidades: upload de 3 fotos simultaneas, extracao automatica de dados de bioimpedancia via foto (usando IA), e botoes de WhatsApp para contato rapido, cobranca e compartilhamento de acesso.
-
----
-
-### 1. Upload Multi-Foto (Frente, Lado, Costas)
-
-Substituir o dialog atual de upload de foto unica por um novo componente que permite enviar ate 3 fotos de uma vez.
-
-**Interface:**
-- Botao "Nova medicao visual" abre um dialog com:
-  - Campo de data (pre-preenchido com hoje, editavel)
-  - Campo opcional de peso atual (kg)
-  - 3 cards lado a lado: Frente, Lateral, Costas
-  - Cada card: area clicavel com icone de upload, preview apos selecao, botao X para remover
-  - Campo de anotacao por foto (textarea pequeno)
-  - Botao "Salvar medicao" (exige pelo menos 1 foto)
-
-**Compressao automatica:**
-- Usar Canvas API no browser para redimensionar imagens antes do upload (max 1920px de lado maior, qualidade JPEG 0.8)
-- Utilidade `compressImage(file: File): Promise<File>` criada em `src/lib/imageUtils.ts`
-
-**Logica de salvamento:**
-- Itera sobre as 3 fotos preenchidas, chama `useUploadProgressPhoto` para cada uma com o mesmo `takenAt`
-- Hook existente ja suporta `notes` por foto
-
-**Novo componente:** `src/components/MultiPhotoUpload.tsx`
+Este plano cobre diversas funcionalidades novas distribuidas entre as abas de Alunos, Agenda e Financeiro.
 
 ---
 
-### 2. Extracao de Bioimpedancia por Foto (OCR via IA)
+### 1. Aba Alunos - Novas Funcionalidades
 
-Novo fluxo "Adicionar bioimpedancia por foto" na aba de bioimpedancia.
+**1a. Inativar Aluno**
+- Adicionar opcao "Inativar" no dropdown menu do card do aluno
+- Ao inativar: muda status para "inactive", remove pagamentos pendentes/atrasados do aluno (deleta registros com status != paid), e exibe confirmacao
+- Alunos inativos nao aparecem mais em listagens de cobranca
 
-**Fluxo:**
-1. Professor clica "Bioimpedancia por foto"
-2. Seleciona/tira foto da tela da balanca
-3. Foto e enviada para edge function que usa Lovable AI (Gemini) para extrair os valores
-4. Campos detectados aparecem pre-preenchidos mas editaveis
-5. Professor confirma e salva
+**1b. Excluir Sessoes Futuras**
+- Nova opcao "Excluir sessoes futuras" no dropdown do aluno
+- Deleta todas as sessoes do aluno com scheduled_date >= hoje
+- Confirmacao antes de executar
 
-**Edge Function:** `supabase/functions/extract-bioimpedance/index.ts`
-- Recebe imagem em base64
-- Envia para Lovable AI Gateway (google/gemini-3-flash-preview) com prompt para extrair: peso, gordura %, musculo %, massa muscular kg, massa magra kg, gordura visceral, TMB, agua %, massa ossea
-- Retorna JSON com valores detectados
-- Trata erros 429/402
+**1c. Escolha de Plano com Dias/Horarios Flexiveis**
+- No formulario do aluno, ao selecionar sessions_per_week (1-6x), abre dinamicamente campos para cada dia
+- Cada dia e um par: seletor de dia da semana (seg-sab) + horario
+- Permite dias e horarios diferentes (ex: seg 8h, qua 10h, sex 7h)
+- Salvar como JSON na coluna `notes` ou em nova coluna `schedule_config` (jsonb) na tabela students
 
-**Frontend:**
-- Novo dialog "Bioimpedancia por foto" com:
-  - Area de upload da foto da balanca
-  - Preview da imagem
-  - Spinner durante processamento
-  - Campos pre-preenchidos com valores extraidos (todos editaveis)
-  - Botao "Confirmar e salvar"
-  - Foto original salva como `report_url` para auditoria
+**1d. Tag "Lembrar"**
+- Novo campo booleano `needs_reminder` na tabela students
+- Quando marcado, exibe icone de sino no card do aluno e nas sessoes agendadas na agenda
+- Na agenda, ao clicar no icone, abre WhatsApp com mensagem pre-criada: "Ola {nome}, lembrando do seu treino de {dia_semana}, dia {dia_mes} as {hora}. Te espero!"
+
+**1e. Tag Consultoria Aprimorada**
+- Alunos com `is_consulting = true` nao aparecem na agenda normal
+- Sistema calcula 3 dias antes do vencimento (baseado no mes de referencia do ultimo pagamento ou campo `payment_due_day`)
+- Exibe alerta no dashboard e na agenda nesse dia: "Atualizar treino de {nome} - vencimento em 3 dias"
 
 ---
 
-### 3. WhatsApp - Contato Rapido, Cobranca e Compartilhar Acesso
+### 2. Aba Agenda - Nova Grade Horaria
 
-**3a. Botao de Contato Rapido (card do aluno)**
-- No dropdown menu do card do aluno em Students.tsx, adicionar opcao "WhatsApp"
-- Abre `https://wa.me/55{phone}` com mensagem pre-preenchida: "Ola {nome}, tudo bem?"
-- Limpa o telefone (remove parenteses, espacos, tracos)
+**2a. Visao por Hora (5h-22h)**
+- Novo modo de visualizacao "Horario" alem de Dia/Semana
+- Grade visual com slots de 1 hora das 05:00 ate 22:00 (17 slots)
+- Sessoes existentes aparecem posicionadas no horario correto
+- Slots vazios sao clicaveis para adicionar sessao rapida (pre-preenche data e hora)
 
-**3b. Cobranca Automatica (Finance.tsx)**
-- No card de pagamento pendente/atrasado, botao de WhatsApp
-- Mensagem: "Ola {nome}, seu pagamento de R$ {valor} referente a {mes} esta {pendente/atrasado}. Podemos resolver?"
-- Precisa do join com students para pegar nome e telefone
+**2b. Drag and Drop para Remarcar**
+- Usar HTML5 Drag and Drop API (sem dependencia extra)
+- Arrastar sessao de um slot para outro no mesmo dia
+- Ao soltar, atualiza o horario da sessao via `useUpdateSession`
+- Feedback visual durante arraste (sombra, highlight do slot destino)
 
-**3c. Compartilhar Acesso (Profile.tsx)**
-- Apos gerar codigo de acesso, botao "Enviar via WhatsApp"
-- Mensagem: "Ola {nome}! Seu acesso ao portal IFT esta pronto. Acesse: {url}/portal e use o codigo: {codigo}"
+---
 
-**Utilidade:** `src/lib/whatsapp.ts`
-- `openWhatsApp(phone: string, message: string)` - formata numero e abre link
+### 3. Financeiro - Melhorias
+
+**3a. Destaque Dourado no Dia de Pagamento**
+- Adicionar campo `payment_due_day` (integer 1-31) na tabela students para dia de vencimento
+- Na agenda, dias que coincidem com vencimento de algum aluno mostram indicador dourado
+- Ao abrir o dia, exibe caixa de aviso: "{Nome} precisa efetuar pagamento hoje"
+
+**3b. Datas Previstas e Rolagem Mes a Mes**
+- Adicionar seletor de mes no topo do financeiro (setas esquerda/direita para navegar entre meses)
+- Mostrar previsao de recebimentos: lista alunos ativos com seus valores de plano
+- Marcar quem ja pagou (baixa) com check verde
+- Resumo por mes: total previsto, total recebido, pendente
 
 ---
 
 ### Secao Tecnica
 
-**Arquivos novos:**
-- `src/lib/imageUtils.ts` - compressao de imagem via Canvas
-- `src/lib/whatsapp.ts` - funcao helper do WhatsApp
-- `src/components/MultiPhotoUpload.tsx` - componente de upload multi-foto
-- `supabase/functions/extract-bioimpedance/index.ts` - edge function OCR
+**Migracao de banco de dados:**
+- Adicionar coluna `schedule_config` (jsonb, nullable) na tabela students - para guardar dias/horarios flexiveis
+- Adicionar coluna `needs_reminder` (boolean, default false) na tabela students - tag de lembrete
+- Adicionar coluna `payment_due_day` (integer, nullable) na tabela students - dia de vencimento
 
 **Arquivos modificados:**
-- `src/pages/Progress.tsx` - substituir dialog de foto por MultiPhotoUpload, adicionar fluxo OCR bio
-- `src/pages/Students.tsx` - adicionar opcao WhatsApp no dropdown
-- `src/pages/Finance.tsx` - adicionar botao WhatsApp nos pagamentos (precisa join com students)
-- `src/hooks/usePayments.ts` - atualizar query para incluir dados do aluno (nome, telefone)
-- `src/pages/Profile.tsx` - adicionar botao WhatsApp apos gerar codigo
-- `supabase/config.toml` - registrar edge function extract-bioimpedance
+- `src/pages/Students.tsx` - dropdown com inativar, excluir sessoes futuras, tag lembrar; formulario com seletor de dias/horarios
+- `src/hooks/useStudents.ts` - novas mutations para inativar (bulk delete payments + update status)
+- `src/hooks/useSessions.ts` - nova mutation `useDeleteFutureSessions` para deletar sessoes >= hoje por student_id
+- `src/pages/Schedule.tsx` - grade horaria 5h-22h, drag and drop, indicadores de lembrete e pagamento, alerta de consultoria
+- `src/pages/Finance.tsx` - navegacao mes a mes, previsao de recebimentos, baixas
+- `src/pages/Index.tsx` - alertas de consultoria proximo do vencimento
+- `src/lib/whatsapp.ts` - nova funcao de mensagem de lembrete com dia/hora
 
-**Dependencias:** Nenhuma nova (Canvas API e nativo, Lovable AI ja disponivel)
-
-**Modelo IA:** google/gemini-3-flash-preview (bom para OCR de imagens, rapido e economico)
+**Nenhuma dependencia nova necessaria** - Drag and Drop usa API nativa do HTML5.
