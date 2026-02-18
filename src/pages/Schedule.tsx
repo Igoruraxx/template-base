@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, addDays, startOfWeek, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -16,12 +16,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/hooks/use-toast';
 import {
   Calendar, Plus, ChevronLeft, ChevronRight, Clock, MapPin,
-  Check, MoreVertical, Edit, Trash2, X
+  Check, Edit, Trash2, Bell, DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
+import { openWhatsApp, buildReminderMessage } from '@/lib/whatsapp';
+
+const HOURS = Array.from({ length: 18 }, (_, i) => i + 5); // 5-22
 
 const Schedule = () => {
   const { user } = useAuth();
@@ -29,32 +29,45 @@ const Schedule = () => {
   const { data: students } = useStudents();
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'hour'>('day');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailSession, setDetailSession] = useState<any>(null);
   const [editingSession, setEditingSession] = useState<any>(null);
+  const [dragOverHour, setDragOverHour] = useState<number | null>(null);
 
   const dateStr = format(currentDate, 'yyyy-MM-dd');
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const startStr = format(weekStart, 'yyyy-MM-dd');
-  const endStr = format(addDays(weekStart, 6), 'yyyy-MM-dd');
-
-  const { data: sessions } = useSessions(viewMode === 'day' ? dateStr : undefined);
+  const { data: sessions } = useSessions(viewMode === 'day' || viewMode === 'hour' ? dateStr : undefined);
   const createSession = useCreateSession();
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
 
-  // For week view, filter by range client-side or use dateStr sessions
+  const startStr = format(weekStart, 'yyyy-MM-dd');
+  const endStr = format(addDays(weekStart, 6), 'yyyy-MM-dd');
+
   const displaySessions = useMemo(() => {
     if (!sessions) return [];
-    if (viewMode === 'day') return sessions;
-    return sessions.filter((s: any) => {
-      const d = s.scheduled_date;
-      return d >= startStr && d <= endStr;
-    });
+    if (viewMode === 'day' || viewMode === 'hour') return sessions;
+    return sessions.filter((s: any) => s.scheduled_date >= startStr && s.scheduled_date <= endStr);
   }, [sessions, viewMode, startStr, endStr]);
+
+  // Payment due day alerts for today
+  const paymentAlerts = useMemo(() => {
+    if (!students) return [];
+    const today = new Date().getDate();
+    return students.filter((s: any) => s.status === 'active' && s.payment_due_day === today);
+  }, [students]);
+
+  // Consulting alerts (3 days before due)
+  const consultingAlerts = useMemo(() => {
+    if (!students) return [];
+    const in3Days = new Date();
+    in3Days.setDate(in3Days.getDate() + 3);
+    const dueDay = in3Days.getDate();
+    return students.filter((s: any) => s.is_consulting && s.status === 'active' && s.payment_due_day === dueDay);
+  }, [students]);
 
   const [form, setForm] = useState({
     student_id: '', scheduled_date: dateStr, scheduled_time: '08:00',
@@ -69,9 +82,9 @@ const Schedule = () => {
     setEditingSession(null);
   };
 
-  const openNew = () => {
+  const openNew = (presetTime?: string) => {
     resetForm();
-    setForm(f => ({ ...f, scheduled_date: dateStr }));
+    setForm(f => ({ ...f, scheduled_date: dateStr, scheduled_time: presetTime || '08:00' }));
     setDialogOpen(true);
   };
 
@@ -91,17 +104,11 @@ const Schedule = () => {
 
   const handleSave = async () => {
     if (!form.student_id) return toast({ title: 'Selecione um aluno', variant: 'destructive' });
-
     const payload = {
-      student_id: form.student_id,
-      scheduled_date: form.scheduled_date,
-      scheduled_time: form.scheduled_time,
-      duration_minutes: parseInt(form.duration_minutes) || 60,
-      location: form.location || null,
-      notes: form.notes || null,
-      muscle_groups: form.muscle_groups,
+      student_id: form.student_id, scheduled_date: form.scheduled_date,
+      scheduled_time: form.scheduled_time, duration_minutes: parseInt(form.duration_minutes) || 60,
+      location: form.location || null, notes: form.notes || null, muscle_groups: form.muscle_groups,
     };
-
     try {
       if (editingSession) {
         await updateSession.mutateAsync({ id: editingSession.id, ...payload });
@@ -149,7 +156,36 @@ const Schedule = () => {
     setCurrentDate(prev => addDays(prev, viewMode === 'week' ? dir * 7 : dir));
   };
 
-  // Group sessions by date for week view
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, session: any) => {
+    e.dataTransfer.setData('sessionId', session.id);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, hour: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverHour(hour);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverHour(null);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, hour: number) => {
+    e.preventDefault();
+    setDragOverHour(null);
+    const sessionId = e.dataTransfer.getData('sessionId');
+    if (!sessionId) return;
+    const newTime = `${String(hour).padStart(2, '0')}:00`;
+    try {
+      await updateSession.mutateAsync({ id: sessionId, scheduled_time: newTime });
+      toast({ title: `Sessão remarcada para ${newTime}` });
+    } catch (err: any) {
+      toast({ title: 'Erro ao remarcar', description: err.message, variant: 'destructive' });
+    }
+  }, [updateSession, toast]);
+
   const sessionsByDate = useMemo(() => {
     const map: Record<string, any[]> = {};
     displaySessions.forEach((s: any) => {
@@ -159,18 +195,35 @@ const Schedule = () => {
     return map;
   }, [displaySessions]);
 
-  const renderSessionCard = (session: any) => {
+  const sessionsByHour = useMemo(() => {
+    const map: Record<number, any[]> = {};
+    displaySessions.forEach((s: any) => {
+      const hour = parseInt(s.scheduled_time?.slice(0, 2) || '0');
+      if (!map[hour]) map[hour] = [];
+      map[hour].push(s);
+    });
+    return map;
+  }, [displaySessions]);
+
+  // Check if today has a payment due
+  const todayHasPaymentDue = paymentAlerts.length > 0 && dateStr === format(new Date(), 'yyyy-MM-dd');
+
+  const renderSessionCard = (session: any, draggable = false) => {
     const student = session.students;
     const isCompleted = session.status === 'completed';
     const isCancelled = session.status === 'cancelled';
+    const hasReminder = student?.needs_reminder && student?.phone;
 
     return (
       <motion.div
         key={session.id}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
+        draggable={draggable}
+        onDragStart={draggable ? (e) => handleDragStart(e as any, session) : undefined}
         className={cn(
-          'glass rounded-xl p-3 relative overflow-hidden cursor-pointer',
+          'glass rounded-xl p-3 relative overflow-hidden',
+          draggable && 'cursor-grab active:cursor-grabbing',
           isCompleted && 'opacity-70',
           isCancelled && 'opacity-40'
         )}
@@ -178,24 +231,25 @@ const Schedule = () => {
       >
         <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
           style={{ backgroundColor: student?.color || '#10b981' }} />
-
         <div className="ml-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">{student?.name || 'Aluno'}</span>
               {isCompleted && <Check className="h-3.5 w-3.5 text-primary" />}
+              {hasReminder && (
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  openWhatsApp(student.phone, buildReminderMessage(student.name, session.scheduled_date, session.scheduled_time));
+                }} className="text-amber-400 hover:text-amber-300">
+                  <Bell className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
-            <span className="text-xs text-muted-foreground">
-              {session.scheduled_time?.slice(0, 5)}
-            </span>
+            <span className="text-xs text-muted-foreground">{session.scheduled_time?.slice(0, 5)}</span>
           </div>
-
           {session.muscle_groups && session.muscle_groups.length > 0 && (
-            <div className="mt-1.5">
-              <MuscleGroupBadges groups={session.muscle_groups} size="xs" />
-            </div>
+            <div className="mt-1.5"><MuscleGroupBadges groups={session.muscle_groups} size="xs" /></div>
           )}
-
           {session.location && (
             <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
               <MapPin className="h-2.5 w-2.5" /> {session.location}
@@ -209,40 +263,57 @@ const Schedule = () => {
   return (
     <AppLayout>
       <div className="px-4 pt-12 pb-6 max-w-lg mx-auto">
-        {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold tracking-tight">Agenda</h1>
-          <Button onClick={openNew} size="icon"
+          <Button onClick={() => openNew()} size="icon"
             className="rounded-xl gradient-primary shadow-lg shadow-primary/25 h-10 w-10">
             <Plus className="h-5 w-5" />
           </Button>
         </motion.div>
 
+        {/* Alerts */}
+        {todayHasPaymentDue && (
+          <div className="mb-3 space-y-1">
+            {paymentAlerts.map((s: any) => (
+              <div key={s.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <DollarSign className="h-4 w-4 text-amber-400" />
+                <span className="text-xs text-amber-300 font-medium">{s.name} precisa efetuar pagamento hoje</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {consultingAlerts.length > 0 && (
+          <div className="mb-3 space-y-1">
+            {consultingAlerts.map((s: any) => (
+              <div key={s.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <Calendar className="h-4 w-4 text-blue-400" />
+                <span className="text-xs text-blue-300 font-medium">Atualizar treino de {s.name} — vencimento em 3 dias</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* View toggle + nav */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex bg-muted rounded-xl p-1">
-            <button onClick={() => setViewMode('day')}
-              className={cn('px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                viewMode === 'day' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}>
-              Dia
-            </button>
-            <button onClick={() => setViewMode('week')}
-              className={cn('px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                viewMode === 'week' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}>
-              Semana
-            </button>
+            {(['day', 'week', 'hour'] as const).map(mode => (
+              <button key={mode} onClick={() => setViewMode(mode)}
+                className={cn('px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                  viewMode === mode ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}>
+                {mode === 'day' ? 'Dia' : mode === 'week' ? 'Semana' : 'Horário'}
+              </button>
+            ))}
           </div>
-
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateDate(-1)}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <button onClick={() => setCurrentDate(new Date())}
-              className="text-sm font-medium px-2 py-1 rounded-lg hover:bg-muted transition-colors">
-              {viewMode === 'day'
-                ? format(currentDate, "d 'de' MMMM", { locale: ptBR })
-                : `${format(weekStart, 'd MMM', { locale: ptBR })} — ${format(addDays(weekStart, 6), 'd MMM', { locale: ptBR })}`
+              className="text-xs font-medium px-2 py-1 rounded-lg hover:bg-muted transition-colors">
+              {viewMode === 'week'
+                ? `${format(weekStart, 'd MMM', { locale: ptBR })} — ${format(addDays(weekStart, 6), 'd MMM', { locale: ptBR })}`
+                : format(currentDate, "d 'de' MMMM", { locale: ptBR })
               }
             </button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateDate(1)}>
@@ -251,37 +322,67 @@ const Schedule = () => {
           </div>
         </div>
 
-        {/* Week day selector */}
-        {viewMode === 'day' && (
+        {/* Week day selector (day/hour views) */}
+        {(viewMode === 'day' || viewMode === 'hour') && (
           <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
             {weekDays.map((day) => {
               const isSelected = format(day, 'yyyy-MM-dd') === dateStr;
               const dayIsToday = isToday(day);
+              const hasDue = students?.some((s: any) => s.status === 'active' && s.payment_due_day === day.getDate());
               return (
-                <button
-                  key={day.toISOString()}
-                  onClick={() => setCurrentDate(day)}
+                <button key={day.toISOString()} onClick={() => setCurrentDate(day)}
                   className={cn(
-                    'flex flex-col items-center py-2 px-3 rounded-xl min-w-[48px] transition-all',
+                    'flex flex-col items-center py-2 px-3 rounded-xl min-w-[48px] transition-all relative',
                     isSelected ? 'gradient-primary text-primary-foreground shadow-md' :
-                      dayIsToday ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'
-                  )}
-                >
-                  <span className="text-[10px] uppercase font-medium">
-                    {format(day, 'EEE', { locale: ptBR })}
-                  </span>
+                      dayIsToday ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50',
+                  )}>
+                  <span className="text-[10px] uppercase font-medium">{format(day, 'EEE', { locale: ptBR })}</span>
                   <span className="text-lg font-bold">{format(day, 'd')}</span>
+                  {hasDue && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400" />}
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* Sessions */}
-        {viewMode === 'day' ? (
+        {/* Hourly grid view */}
+        {viewMode === 'hour' && (
+          <div className="space-y-0.5">
+            {HOURS.map(hour => {
+              const hourSessions = sessionsByHour[hour] || [];
+              const timeStr = `${String(hour).padStart(2, '0')}:00`;
+              const isDragTarget = dragOverHour === hour;
+              return (
+                <div key={hour}
+                  onDragOver={(e) => handleDragOver(e, hour)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, hour)}
+                  className={cn(
+                    'flex gap-2 min-h-[52px] rounded-lg transition-colors px-1',
+                    isDragTarget && 'bg-primary/10 ring-1 ring-primary/30'
+                  )}>
+                  <span className="text-[10px] text-muted-foreground w-10 pt-2 shrink-0 text-right">{timeStr}</span>
+                  <div className="flex-1 border-t border-border/30 pt-1 pb-1">
+                    {hourSessions.length > 0 ? (
+                      <div className="space-y-1">{hourSessions.map((s: any) => renderSessionCard(s, true))}</div>
+                    ) : (
+                      <button onClick={() => openNew(timeStr)}
+                        className="w-full h-full min-h-[40px] rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-center">
+                        <Plus className="h-3 w-3 text-muted-foreground/30" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Day view */}
+        {viewMode === 'day' && (
           <div className="space-y-2">
             {displaySessions.length > 0 ? (
-              displaySessions.map(renderSessionCard)
+              displaySessions.map((s: any) => renderSessionCard(s))
             ) : (
               <div className="glass rounded-2xl p-8 flex flex-col items-center text-center">
                 <Calendar className="h-8 w-8 text-muted-foreground mb-2" />
@@ -289,22 +390,23 @@ const Schedule = () => {
               </div>
             )}
           </div>
-        ) : (
+        )}
+
+        {/* Week view */}
+        {viewMode === 'week' && (
           <div className="space-y-4">
             {weekDays.map((day) => {
               const dayStr = format(day, 'yyyy-MM-dd');
               const daySessions = sessionsByDate[dayStr] || [];
               return (
                 <div key={dayStr}>
-                  <p className={cn(
-                    'text-xs font-semibold uppercase mb-2',
-                    isToday(day) ? 'text-primary' : 'text-muted-foreground'
-                  )}>
+                  <p className={cn('text-xs font-semibold uppercase mb-2',
+                    isToday(day) ? 'text-primary' : 'text-muted-foreground')}>
                     {format(day, "EEEE, d", { locale: ptBR })}
                     {isToday(day) && ' • Hoje'}
                   </p>
                   {daySessions.length > 0 ? (
-                    <div className="space-y-2">{daySessions.map(renderSessionCard)}</div>
+                    <div className="space-y-2">{daySessions.map((s: any) => renderSessionCard(s))}</div>
                   ) : (
                     <p className="text-xs text-muted-foreground/50 mb-2">—</p>
                   )}
@@ -335,27 +437,23 @@ const Schedule = () => {
                     </p>
                   </div>
                 </div>
-
                 {detailSession.location && (
                   <p className="text-sm text-muted-foreground flex items-center gap-1">
                     <MapPin className="h-3.5 w-3.5" /> {detailSession.location}
                   </p>
                 )}
-
                 {detailSession.muscle_groups?.length > 0 && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-2">Grupos musculares</p>
                     <MuscleGroupBadges groups={detailSession.muscle_groups} size="sm" />
                   </div>
                 )}
-
                 {detailSession.notes && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Anotações</p>
                     <p className="text-sm">{detailSession.notes}</p>
                   </div>
                 )}
-
                 <div className="flex gap-2">
                   {detailSession.status !== 'completed' && (
                     <Button onClick={() => { handleComplete(detailSession); setDetailSession(null); }}
@@ -384,7 +482,6 @@ const Schedule = () => {
               <DialogTitle>{editingSession ? 'Editar Sessão' : 'Nova Sessão'}</DialogTitle>
               <DialogDescription>Configure os detalhes da sessão</DialogDescription>
             </DialogHeader>
-
             <div className="space-y-4 mt-2">
               <div>
                 <Label className="text-muted-foreground text-xs">Aluno *</Label>
@@ -404,7 +501,6 @@ const Schedule = () => {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-muted-foreground text-xs">Data</Label>
@@ -419,7 +515,6 @@ const Schedule = () => {
                     className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-muted-foreground text-xs">Duração (min)</Label>
@@ -434,12 +529,10 @@ const Schedule = () => {
                     placeholder="Ex: Academia X" className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
                 </div>
               </div>
-
               <div>
                 <Label className="text-muted-foreground text-xs mb-2 block">Grupos Musculares</Label>
                 <MuscleGroupSelector selected={form.muscle_groups} onToggle={toggleMuscleGroup} />
               </div>
-
               <div>
                 <Label className="text-muted-foreground text-xs">Anotações</Label>
                 <Textarea value={form.notes}
@@ -447,7 +540,6 @@ const Schedule = () => {
                   placeholder="Observações da sessão..."
                   className="bg-muted/50 border-border/50 rounded-xl mt-1 min-h-[60px]" />
               </div>
-
               <Button onClick={handleSave}
                 disabled={createSession.isPending || updateSession.isPending}
                 className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold shadow-lg shadow-primary/25">

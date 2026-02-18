@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -6,7 +7,7 @@ import { useStudents } from '@/hooks/useStudents';
 import { useSessions } from '@/hooks/useSessions';
 import { usePayments } from '@/hooks/usePayments';
 import { AppLayout } from '@/components/AppLayout';
-import { Users, Calendar, DollarSign, TrendingUp, Dumbbell } from 'lucide-react';
+import { Users, Calendar, DollarSign, TrendingUp, Dumbbell, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
@@ -27,6 +28,15 @@ const Index = () => {
   const pendingPayments = payments
     ?.filter((p: any) => p.status === 'pending').length || 0;
 
+  // Consulting alerts: 3 days before payment_due_day
+  const consultingAlerts = useMemo(() => {
+    if (!students) return [];
+    const in3Days = new Date();
+    in3Days.setDate(in3Days.getDate() + 3);
+    const dueDay = in3Days.getDate();
+    return students.filter((s: any) => s.is_consulting && s.status === 'active' && s.payment_due_day === dueDay);
+  }, [students]);
+
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || 'Treinador';
 
   const stats = [
@@ -39,7 +49,6 @@ const Index = () => {
   return (
     <AppLayout>
       <div className="px-4 pt-12 pb-6 max-w-lg mx-auto">
-        {/* Greeting */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           <p className="text-muted-foreground text-sm">
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
@@ -49,17 +58,24 @@ const Index = () => {
           </h1>
         </motion.div>
 
-        {/* Stats Grid */}
+        {/* Consulting alerts */}
+        {consultingAlerts.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+            className="mt-4 space-y-1.5">
+            {consultingAlerts.map((s: any) => (
+              <div key={s.id} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <AlertTriangle className="h-4 w-4 text-blue-400 shrink-0" />
+                <span className="text-xs text-blue-300 font-medium">Atualizar treino de {s.name} — vencimento em 3 dias</span>
+              </div>
+            ))}
+          </motion.div>
+        )}
+
         <div className="grid grid-cols-2 gap-3 mt-6">
           {stats.map((stat, i) => (
-            <motion.button
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + i * 0.05 }}
-              onClick={() => navigate(stat.route)}
-              className="glass rounded-2xl p-4 text-left hover:scale-[1.02] transition-transform"
-            >
+            <motion.button key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }} onClick={() => navigate(stat.route)}
+              className="glass rounded-2xl p-4 text-left hover:scale-[1.02] transition-transform">
               <stat.icon className={`h-5 w-5 ${stat.color} mb-2`} />
               <p className="text-2xl font-bold">{stat.value}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
@@ -67,7 +83,6 @@ const Index = () => {
           ))}
         </div>
 
-        {/* Today's Sessions */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="mt-6">
           <h2 className="text-lg font-semibold mb-3">Sessões de hoje</h2>

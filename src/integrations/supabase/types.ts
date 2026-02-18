@@ -258,12 +258,15 @@ export type Database = {
           id: string
           is_consulting: boolean | null
           name: string
+          needs_reminder: boolean | null
           notes: string | null
           package_total_sessions: number | null
           package_used_sessions: number | null
+          payment_due_day: number | null
           phone: string | null
           plan_type: string | null
           plan_value: number | null
+          schedule_config: Json | null
           sessions_per_week: number | null
           status: string | null
           trainer_id: string
@@ -279,12 +282,15 @@ export type Database = {
           id?: string
           is_consulting?: boolean | null
           name: string
+          needs_reminder?: boolean | null
           notes?: string | null
           package_total_sessions?: number | null
           package_used_sessions?: number | null
+          payment_due_day?: number | null
           phone?: string | null
           plan_type?: string | null
           plan_value?: number | null
+          schedule_config?: Json | null
           sessions_per_week?: number | null
           status?: string | null
           trainer_id: string
@@ -300,12 +306,15 @@ export type Database = {
           id?: string
           is_consulting?: boolean | null
           name?: string
+          needs_reminder?: boolean | null
           notes?: string | null
           package_total_sessions?: number | null
           package_used_sessions?: number | null
+          payment_due_day?: number | null
           phone?: string | null
           plan_type?: string | null
           plan_value?: number | null
+          schedule_config?: Json | null
           sessions_per_week?: number | null
           status?: string | null
           trainer_id?: string
@@ -348,12 +357,15 @@ export type Database = {
           id: string
           is_consulting: boolean | null
           name: string
+          needs_reminder: boolean | null
           notes: string | null
           package_total_sessions: number | null
           package_used_sessions: number | null
+          payment_due_day: number | null
           phone: string | null
           plan_type: string | null
           plan_value: number | null
+          schedule_config: Json | null
           sessions_per_week: number | null
           status: string | null
           trainer_id: string
