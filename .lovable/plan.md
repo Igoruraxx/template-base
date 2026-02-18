@@ -72,4 +72,3 @@ Reconstrução completa do app de gestão de personal trainer com design moderno
 - Recharts para gráficos
 - jsPDF para relatórios
 - Framer Motion para animações
-
