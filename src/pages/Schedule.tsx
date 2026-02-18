@@ -29,7 +29,7 @@ const Schedule = () => {
   const { data: students } = useStudents();
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'hour'>('day');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'hour'>('hour');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailSession, setDetailSession] = useState<any>(null);
   const [editingSession, setEditingSession] = useState<any>(null);
