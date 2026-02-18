@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -37,13 +37,17 @@ export const BeforeAfterComparison = ({ photos, onPhotoClick }: Props) => {
     return unique;
   }, [photos]);
 
-  // Auto-select first and last dates
-  useMemo(() => {
-    if (dates.length >= 2 && !beforeDate && !afterDate) {
+  // Auto-select first and last dates when photos change
+  useEffect(() => {
+    if (dates.length >= 2) {
       setBeforeDate(dates[0]);
       setAfterDate(dates[dates.length - 1]);
-    } else if (dates.length === 1 && !beforeDate) {
+    } else if (dates.length === 1) {
       setBeforeDate(dates[0]);
+      setAfterDate('');
+    } else {
+      setBeforeDate('');
+      setAfterDate('');
     }
   }, [dates]);
 
