@@ -1,64 +1,26 @@
 
 
-## Painel de Assinatura na Tela do Trainer
+## Agenda como tela inicial com visualizacao "Horario" padrao
 
-Criar uma secao dedicada na pagina de Perfil (`/profile`) para que o trainer visualize e gerencie sua assinatura diretamente.
+Duas alteracoes simples:
 
----
+### 1. Redirecionar "/" para "/schedule"
+A rota principal (`/`) atualmente mostra a pagina `Index`. Sera alterada para renderizar a pagina `Schedule`, tornando a Agenda a primeira tela apos o login.
 
-### O que sera adicionado
+O item "Inicio" no menu inferior tambem sera atualizado para apontar para `/schedule` (e renomeado para "Agenda"), removendo a duplicidade.
 
-Uma nova secao "Meu Plano" na pagina de Perfil, entre o card do perfil e as ferramentas existentes, contendo:
-
-1. **Card do plano atual** mostrando:
-   - Nome do plano (Gratuito ou Premium)
-   - Badge de status (Ativo, Pendente PIX, etc.)
-   - Barra de progresso de slots usados (ex: "3/5 alunos ativos")
-   - Data de expiracao (se Premium)
-
-2. **Botoes de acao**:
-   - Se plano Gratuito: botao "Fazer Upgrade" que abre o `StudentLimitModal` ja existente
-   - Se Premium: botao "Gerenciar Assinatura" (futura integracao com portal Stripe)
-   - Se PIX pendente: indicador visual de "Aguardando confirmacao"
-
-3. **Indicador visual de limite**:
-   - Barra de progresso colorida (verde ate 3/5, amarelo em 4/5, vermelho em 5/5)
-   - Texto "Ilimitado" com icone de coroa para Premium
+### 2. View padrao "hour" na Agenda
+O estado inicial de `viewMode` em `Schedule.tsx` sera alterado de `'day'` para `'hour'`.
 
 ---
 
 ### Secao Tecnica
 
-**Arquivo modificado:**
-- `src/pages/Profile.tsx`: adicionar secao "Meu Plano" usando o hook `useTrainerSubscription` e o componente `StudentLimitModal` ja existentes
+**Arquivos modificados:**
 
-**Componentes reutilizados:**
-- `useTrainerSubscription` (hook com dados do plano, slots, status)
-- `StudentLimitModal` (modal de upgrade Stripe/PIX)
-- `Progress` (barra de progresso do shadcn/ui)
-- `Badge` (badge de status)
-- `Card` (container visual)
+1. **`src/App.tsx`** (linha 35): trocar `<Index />` por `<Schedule />` na rota `/`, ou redirecionar `/` para `/schedule` usando `Navigate`.
 
-**Nenhum novo arquivo sera criado** -- tudo sera adicionado dentro de `Profile.tsx` usando componentes e hooks existentes.
+2. **`src/pages/Schedule.tsx`** (linha 32): alterar o valor inicial de `useState` de `'day'` para `'hour'`.
 
-**Estrutura da nova secao:**
-
-```text
-Profile.tsx
-  [Card perfil existente]
-  [NOVA SECAO: Meu Plano]
-    - Card com plano atual + badge status
-    - Progress bar de slots (slotsUsed / slotsTotal)
-    - Botao upgrade (free) ou gerenciar (premium)
-  [Ferramentas existentes]
-```
-
-**Dados utilizados do hook `useTrainerSubscription`:**
-- `plan` (free/premium)
-- `status` (active/pending_pix)
-- `isPremium`
-- `isPendingPix`
-- `slotsUsed`
-- `slotsTotal`
-- `isNearLimit`
+3. **`src/components/BottomNav.tsx`** (linha 7): atualizar o primeiro item do nav de `{ icon: Home, label: 'Inicio', path: '/' }` para `{ icon: Calendar, label: 'Agenda', path: '/schedule' }` e remover o item duplicado de Agenda (linha 9).
 
