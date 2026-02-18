@@ -12,13 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, ScanLine } from 'lucide-react';
+import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, ScanLine, ArrowLeftRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { MultiPhotoUpload } from '@/components/MultiPhotoUpload';
 import { fileToBase64 } from '@/lib/imageUtils';
 import { supabase } from '@/integrations/supabase/client';
+import { BeforeAfterComparison } from '@/components/BeforeAfterComparison';
 
 const PHOTO_TYPES = [
   { value: 'front', label: 'Frente' },
@@ -162,8 +163,11 @@ const Progress = () => {
               <TabsTrigger value="photos" className="flex-1 rounded-lg text-xs">
                 <Camera className="h-3.5 w-3.5 mr-1" /> Fotos
               </TabsTrigger>
+              <TabsTrigger value="compare" className="flex-1 rounded-lg text-xs">
+                <ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Comparar
+              </TabsTrigger>
               <TabsTrigger value="bio" className="flex-1 rounded-lg text-xs">
-                <TrendingUp className="h-3.5 w-3.5 mr-1" /> Bioimpedância
+                <TrendingUp className="h-3.5 w-3.5 mr-1" /> Bio
               </TabsTrigger>
             </TabsList>
 
@@ -202,6 +206,13 @@ const Progress = () => {
                   <p className="text-sm text-muted-foreground">Nenhuma foto de progresso</p>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="compare">
+              <BeforeAfterComparison
+                photos={photos || []}
+                onPhotoClick={(url) => setLightboxUrl(url)}
+              />
             </TabsContent>
 
             <TabsContent value="bio">
