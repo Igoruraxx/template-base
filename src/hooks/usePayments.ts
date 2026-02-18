@@ -1,13 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useRef } from 'react';
 
 export const usePayments = (studentId?: string) => {
   const { user } = useAuth();
   return useQuery({
     queryKey: ['payments', user?.id, studentId],
     queryFn: async () => {
-      let query = supabase.from('payments').select('*, students(name, color, phone)').order('reference_month', { ascending: false });
+      let query = supabase.from('payments').select('*, students(name, color, phone, payment_due_day, plan_value)').order('reference_month', { ascending: false });
       if (studentId) query = query.eq('student_id', studentId);
       const { data, error } = await query;
       if (error) throw error;
@@ -60,4 +61,74 @@ export const useDeletePayment = () => {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['payments'] }),
   });
+};
+
+// Auto-generate pending payments for active students missing a record this month
+export const useAutoGeneratePayments = (
+  viewMonthStr: string,
+  students: any[] | undefined,
+  payments: any[] | undefined,
+) => {
+  const createPayment = useCreatePayment();
+  const generated = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!students || !payments) return;
+
+    const activeWithPlan = students.filter(
+      (s) => s.status === 'active' && s.plan_value && s.payment_due_day,
+    );
+
+    const existingStudentIds = new Set(
+      payments
+        .filter((p: any) => p.reference_month === viewMonthStr)
+        .map((p: any) => p.student_id),
+    );
+
+    const key = viewMonthStr;
+    activeWithPlan.forEach((s) => {
+      const uid = `${key}-${s.id}`;
+      if (!existingStudentIds.has(s.id) && !generated.current.has(uid)) {
+        generated.current.add(uid);
+        createPayment.mutate({
+          student_id: s.id,
+          amount: Number(s.plan_value),
+          reference_month: viewMonthStr,
+          status: 'pending',
+        });
+      }
+    });
+  }, [viewMonthStr, students, payments]);
+};
+
+// Auto-mark overdue payments whose due day has passed
+export const useMarkOverdue = (
+  viewMonthStr: string,
+  payments: any[] | undefined,
+  students: any[] | undefined,
+) => {
+  const updatePayment = useUpdatePayment();
+  const marked = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!payments || !students) return;
+
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // Only auto-mark overdue for the current month
+    if (viewMonthStr !== currentMonthStr) return;
+
+    const today = now.getDate();
+    const studentMap = new Map(students.map((s) => [s.id, s]));
+
+    payments
+      .filter((p: any) => p.reference_month === viewMonthStr && p.status === 'pending')
+      .forEach((p: any) => {
+        const student = studentMap.get(p.student_id);
+        if (student?.payment_due_day && student.payment_due_day < today && !marked.current.has(p.id)) {
+          marked.current.add(p.id);
+          updatePayment.mutate({ id: p.id, status: 'overdue' });
+        }
+      });
+  }, [viewMonthStr, payments, students]);
 };

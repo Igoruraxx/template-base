@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Users, Calendar, Camera, User } from 'lucide-react';
+import { Users, Calendar, Camera, User, DollarSign } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +8,7 @@ const navItems = [
   { icon: Users, label: 'Alunos', path: '/students' },
   { icon: Camera, label: 'Progresso', path: '/progress' },
   { icon: User, label: 'Perfil', path: '/profile' },
+  { icon: DollarSign, label: 'Financeiro', path: '/finance' },
 ];
 
 export const BottomNav = () => {
