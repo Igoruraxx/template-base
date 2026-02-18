@@ -1,50 +1,57 @@
+## Relatorio PDF com Fotos + Aba Relatorio no Cadastro do Aluno
 
-
-## Gerar PDF da Avaliacao Fisica
-
-Adicionar um botao em cada card de avaliacao para gerar e baixar um PDF completo com todos os dados, usando a biblioteca `jsPDF` que ja esta instalada no projeto.
+Duas mudancas principais: incluir as fotos de progresso no PDF da avaliacao e mover/adicionar a aba de relatorio (avaliacao) dentro do cadastro do aluno.
 
 ---
 
-### O que o PDF vai conter
+### 1. Fotos no PDF da Avaliacao
 
-1. **Cabecalho**: Titulo "Avaliacao Fisica", nome do aluno e data da avaliacao
-2. **Dados Gerais**: Sexo, idade, peso
-3. **Composicao Corporal**: Densidade corporal, percentual de gordura, massa gorda e massa magra
-4. **Tabela de Dobras Cutaneas**: As 7 dobras com valores em mm e a soma total
-5. **Tabela de Perimetros**: Os 12 perimetros com valores em cm
-6. **Observacoes**: Se houver notas registradas
+Ao gerar o PDF, as fotos de progresso do aluno serao buscadas e agrupadas por data. Para cada data, as fotos aparecem lado a lado (frente, lado, costas) em uma nova pagina do PDF.
+
+**Fluxo:**
+
+- A funcao `generateAssessmentPdf` passara a receber as fotos do aluno como parametro
+- As fotos sao agrupadas por `taken_at` (data)
+- Para cada data, ate 3 fotos sao posicionadas lado a lado na pagina (largura ~55mm cada)
+- As imagens sao carregadas via fetch, convertidas para base64, e inseridas com `doc.addImage()`
+- A secao de fotos fica apos os dados da avaliacao, em pagina(s) separada(s)
 
 ---
 
-### Mudancas
+### 2. Aba Relatorio no Cadastro do Aluno
 
-**Novo arquivo: `src/lib/generateAssessmentPdf.ts`**
-- Funcao que recebe um objeto `Assessment` e o nome do aluno
-- Usa `jsPDF` para montar o documento com tabelas formatadas
-- Retorna o download automatico do PDF
+Atualmente o cadastro do aluno e um Dialog simples com formulario. A proposta e transformar esse dialog em um layout com abas quando estiver editando um aluno existente:
 
-**Arquivo modificado: `src/components/AssessmentTab.tsx`**
-- Importar a funcao de geracao de PDF
-- Buscar o nome do aluno (receber via prop ou buscar do hook `useStudents`)
-- Adicionar um botao com icone `FileDown` ao lado do botao de deletar em cada card de avaliacao
-- Ao clicar, chama a funcao de geracao e faz o download
+- **Aba "Dados"**: formulario atual (nome, telefone, plano, etc.)
+- **Aba "Relatorio"**: componente `AssessmentTab` com graficos, lista de avaliacoes e botao de nova avaliacao
+
+Quando for um novo aluno (criacao), o dialog mostra apenas o formulario sem abas.
+
+&nbsp;
+
+Criar um icone bonito disruptivo para o aplicativo para quando transformar em pwa. Ja prepare o app para se transformar em pwa 
 
 ---
 
 ### Secao Tecnica
 
-**`src/lib/generateAssessmentPdf.ts`**
-- Importa `jsPDF` (ja instalado)
-- Cria documento A4, adiciona titulo, dados do aluno, tabelas de dobras e perimetros com `doc.text()` e posicionamento manual
-- Chama `doc.save('avaliacao-NOME-DATA.pdf')`
+`**src/lib/generateAssessmentPdf.ts**`
 
-**`src/components/AssessmentTab.tsx`**
-- Adicionar prop `studentName` na interface `Props`
-- Importar `FileDown` do lucide-react
-- Adicionar botao de PDF no card, ao lado do Trash2
-- O `Progress.tsx` precisara passar o `studentName` como prop (buscar do array `students` pelo `selectedStudent`)
+- Adicionar parametro `photos` (array de `{ photo_url, photo_type, taken_at }`)
+- Criar funcao auxiliar `loadImageAsBase64(url)` que faz fetch da imagem e converte para base64 via canvas
+- Agrupar fotos por `taken_at`
+- Para cada grupo de data, adicionar nova pagina com titulo da data e as fotos lado a lado (ate 3 por linha, ~55mm de largura cada)
+- A funcao passa a ser `async` pois precisa carregar as imagens
 
-**`src/pages/Progress.tsx`**
-- Passar o nome do aluno selecionado para `AssessmentTab` via prop `studentName`
+`**src/components/AssessmentTab.tsx**`
 
+- Atualizar o botao de gerar PDF para buscar as fotos do aluno (usando `useProgressPhotos`) e passa-las para `generateAssessmentPdf`
+- Importar o hook `useProgressPhotos`
+
+`**src/pages/Students.tsx**`
+
+- No Dialog de edicao: quando `editingStudent` existir, envolver o conteudo em `Tabs` com duas abas ("Dados" e "Relatorio")
+- A aba "Dados" contem o formulario existente
+- A aba "Relatorio" renderiza `<AssessmentTab studentId={editingStudent.id} studentName={editingStudent.name} />`
+- Quando for novo aluno (`!editingStudent`), mostra apenas o formulario sem abas
+- Importar `Tabs, TabsContent, TabsList, TabsTrigger` e `AssessmentTab`
