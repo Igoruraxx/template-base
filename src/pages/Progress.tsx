@@ -282,7 +282,7 @@ const Progress = () => {
             </TabsContent>
 
             <TabsContent value="assessment">
-              <AssessmentTab studentId={selectedStudent} />
+              <AssessmentTab studentId={selectedStudent} studentName={availableStudents.find(s => s.id === selectedStudent)?.name} />
             </TabsContent>
           </Tabs>
         ) : (

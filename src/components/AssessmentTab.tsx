@@ -2,18 +2,20 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAssessments, useDeleteAssessment, Assessment } from '@/hooks/useAssessments';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, ClipboardList, FileDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { NewAssessmentDialog } from './NewAssessmentDialog';
 import { AssessmentAnalysis } from './AssessmentAnalysis';
+import { generateAssessmentPdf } from '@/lib/generateAssessmentPdf';
 
 interface Props {
   studentId: string;
+  studentName?: string;
 }
 
-export const AssessmentTab = ({ studentId }: Props) => {
+export const AssessmentTab = ({ studentId, studentName }: Props) => {
   const { data: assessments } = useAssessments(studentId);
   const deleteAssessment = useDeleteAssessment();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,10 +102,16 @@ export const AssessmentTab = ({ studentId }: Props) => {
               <p className="text-xs text-muted-foreground font-medium">
                 {format(parseISO(r.measured_at), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
               </p>
-              <button onClick={() => deleteAssessment.mutate({ id: r.id, studentId })}
-                className="text-muted-foreground hover:text-destructive">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => generateAssessmentPdf(r, studentName || 'Aluno')}
+                  className="text-muted-foreground hover:text-primary" title="Baixar PDF">
+                  <FileDown className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => deleteAssessment.mutate({ id: r.id, studentId })}
+                  className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-4 gap-2 mt-2">
               <Stat label="Peso" value={`${Number(r.weight).toFixed(1)} kg`} />
