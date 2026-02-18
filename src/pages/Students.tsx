@@ -13,8 +13,9 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
   Users, Plus, Search, Phone, Target, CreditCard, User,
-  MoreVertical, Edit, Trash2, X
+  MoreVertical, Edit, Trash2, X, MessageCircle
 } from 'lucide-react';
+import { openWhatsApp } from '@/lib/whatsapp';
 import { STUDENT_COLORS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import {
@@ -203,6 +204,11 @@ const Students = () => {
                         <DropdownMenuItem onClick={() => openEdit(student)}>
                           <Edit className="h-4 w-4 mr-2" /> Editar
                         </DropdownMenuItem>
+                        {student.phone && (
+                          <DropdownMenuItem onClick={() => openWhatsApp(student.phone!, `Olá ${student.name}, tudo bem?`)}>
+                            <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => handleDelete(student.id)}

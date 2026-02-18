@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, User, Key, Copy, Shield, FileText } from 'lucide-react';
+import { LogOut, User, Key, Copy, Shield, FileText, MessageCircle } from 'lucide-react';
+import { openWhatsApp } from '@/lib/whatsapp';
 import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -196,9 +197,22 @@ const Profile = () => {
               {accessCode ? (
                 <div className="text-center">
                   <p className="text-3xl font-mono font-bold tracking-[0.3em] text-primary">{accessCode}</p>
-                  <Button variant="ghost" size="sm" className="mt-2" onClick={copyCode}>
-                    <Copy className="h-4 w-4 mr-1" /> Copiar
-                  </Button>
+                  <div className="flex items-center justify-center gap-2 mt-2">
+                    <Button variant="ghost" size="sm" onClick={copyCode}>
+                      <Copy className="h-4 w-4 mr-1" /> Copiar
+                    </Button>
+                    {(() => {
+                      const student = students?.find(s => s.id === selectedStudent);
+                      return student?.phone ? (
+                        <Button variant="ghost" size="sm" onClick={() => openWhatsApp(
+                          student.phone!,
+                          `Olá ${student.name}! Seu acesso ao portal está pronto. Acesse: ${window.location.origin}/portal e use o código: ${accessCode}`
+                        )}>
+                          <MessageCircle className="h-4 w-4 mr-1" /> WhatsApp
+                        </Button>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
               ) : (
                 <Button onClick={handleGenerateCode} disabled={!selectedStudent}

@@ -12,7 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, Plus, Check, Clock, AlertTriangle, Trash2, Filter } from 'lucide-react';
+import { DollarSign, Plus, Check, Clock, AlertTriangle, Trash2, Filter, MessageCircle } from 'lucide-react';
+import { openWhatsApp } from '@/lib/whatsapp';
 import { cn } from '@/lib/utils';
 
 const STATUS_MAP: Record<string, { label: string; icon: any; className: string }> = {
@@ -153,6 +154,14 @@ const Finance = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-sm">R$ {Number(payment.amount).toFixed(0)}</p>
+                    {payment.status !== 'paid' && payment.students?.phone && (
+                      <button onClick={() => openWhatsApp(
+                        payment.students.phone,
+                        `Olá ${payment.students.name}, seu pagamento de R$ ${Number(payment.amount).toFixed(2)} referente a ${payment.reference_month} está ${payment.status === 'overdue' ? 'atrasado' : 'pendente'}. Podemos resolver?`
+                      )} className="text-muted-foreground hover:text-primary">
+                        <MessageCircle className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button onClick={() => deletePayment.mutate(payment.id)}
                       className="text-muted-foreground hover:text-destructive">
                       <Trash2 className="h-3.5 w-3.5" />
