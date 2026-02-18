@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion';
-import logo from '@/assets/logo.png';
+import { motion } from "framer-motion";
+import logo from "@/assets/logo.png";
 
 export const LoadingScreen = () => {
   return (
@@ -12,7 +12,7 @@ export const LoadingScreen = () => {
       >
         <motion.div
           animate={{ rotate: [0, 10, -10, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
         >
           <img src={logo} alt="IFT Trainer" className="h-12 w-12 rounded-xl" />
         </motion.div>
@@ -24,14 +24,12 @@ export const LoadingScreen = () => {
         >
           <motion.div
             className="h-full rounded-full gradient-primary"
-            animate={{ x: ['-100%', '100%'] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-            style={{ width: '50%' }}
+            animate={{ x: ["-100%", "100%"] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+            style={{ width: "50%" }}
           />
         </motion.div>
-        <p className="text-sm text-muted-foreground font-medium tracking-wide">
-          IFT Trainer
-        </p>
+        <p className="text-sm text-muted-foreground font-medium tracking-wide">AGENDA</p>
       </motion.div>
     </div>
   );
