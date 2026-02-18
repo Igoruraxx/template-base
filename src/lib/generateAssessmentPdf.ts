@@ -61,12 +61,36 @@ export async function generateAssessmentPdf(
 ) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  let y = 20;
+  let y = 15;
 
-  // Header
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Avaliação Física', pageWidth / 2, y, { align: 'center' });
+  // Load logo
+  const logoBase64 = await loadImageAsBase64('/icon-192.png');
+
+  // Header with logo
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'PNG', 14, y, 18, 18);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Avaliação Física', 36, y + 8);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(studentName, 36, y + 14);
+    doc.setFontSize(10);
+    doc.text(format(parseISO(assessment.measured_at), "d 'de' MMMM 'de' yyyy", { locale: ptBR }), 36, y + 19);
+    y += 28;
+  } else {
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Avaliação Física', pageWidth / 2, y, { align: 'center' });
+    y += 10;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(studentName, pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(10);
+    doc.text(format(parseISO(assessment.measured_at), "d 'de' MMMM 'de' yyyy", { locale: ptBR }), pageWidth / 2, y, { align: 'center' });
+    y += 12;
+  }
   y += 10;
 
   doc.setFontSize(12);

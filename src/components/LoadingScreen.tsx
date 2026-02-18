@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Dumbbell } from 'lucide-react';
+import logo from '@/assets/logo.png';
 
 export const LoadingScreen = () => {
   return (
@@ -14,7 +14,7 @@ export const LoadingScreen = () => {
           animate={{ rotate: [0, 10, -10, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <Dumbbell className="h-12 w-12 text-primary" />
+          <img src={logo} alt="IFT Trainer" className="h-12 w-12 rounded-xl" />
         </motion.div>
         <motion.div
           className="h-1 w-32 rounded-full bg-muted overflow-hidden"

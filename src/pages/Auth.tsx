@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Dumbbell, Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import logo from '@/assets/logo.png';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,9 +63,7 @@ const Auth = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="h-16 w-16 rounded-2xl gradient-primary flex items-center justify-center mb-4 shadow-lg shadow-primary/25">
-            <Dumbbell className="h-8 w-8 text-primary-foreground" />
-          </div>
+          <img src={logo} alt="IFT Trainer" className="h-16 w-16 rounded-2xl mb-4 shadow-lg shadow-primary/25" />
           <h1 className="text-3xl font-bold tracking-tight">
             IFT <span className="text-gradient">Trainer</span>
           </h1>
@@ -188,7 +187,7 @@ const Auth = () => {
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                 >
-                  <Dumbbell className="h-5 w-5" />
+                  <img src={logo} alt="" className="h-5 w-5 rounded" />
                 </motion.div>
               ) : (
                 <>
