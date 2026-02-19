@@ -1,6 +1,7 @@
 -- =============================================
 -- SCRIPT COMPLETO DE MIGRAÇÃO - FitPro Agenda
--- Execute este script no SQL Editor do Supabase
+-- Idempotente: pode ser rodado múltiplas vezes
+-- Execute no SQL Editor do novo projeto Supabase
 -- =============================================
 
 -- ==================== EXTENSÕES ====================
@@ -19,7 +20,7 @@ $$ LANGUAGE plpgsql SET search_path = public;
 
 -- ==================== PROFILES ====================
 
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT,
@@ -31,16 +32,18 @@ CREATE TABLE public.profiles (
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 CREATE POLICY "Users can view their own profile"
 ON public.profiles FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile"
 ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 CREATE POLICY "Users can insert their own profile"
 ON public.profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -50,19 +53,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 CREATE TRIGGER update_profiles_updated_at
 BEFORE UPDATE ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ==================== USER ROLES ====================
 
-CREATE TYPE public.app_role AS ENUM ('admin', 'trainer');
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('admin', 'trainer');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   role app_role NOT NULL,
@@ -81,29 +90,31 @@ AS $$
   )
 $$;
 
+DROP POLICY IF EXISTS "Users can view their own roles" ON public.user_roles;
 CREATE POLICY "Users can view their own roles"
 ON public.user_roles FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Admins can manage all roles" ON public.user_roles;
 CREATE POLICY "Admins can manage all roles"
 ON public.user_roles FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- ==================== STUDENTS ====================
 
-CREATE TABLE public.students (
+CREATE TABLE IF NOT EXISTS public.students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   trainer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   phone TEXT,
   email TEXT,
   goal TEXT,
-  plan_type TEXT DEFAULT 'monthly' CHECK (plan_type IN ('monthly', 'package')),
+  plan_type TEXT DEFAULT 'monthly',
   plan_value NUMERIC(10,2),
   sessions_per_week INTEGER DEFAULT 3,
   package_total_sessions INTEGER,
   package_used_sessions INTEGER DEFAULT 0,
   color TEXT DEFAULT '#10b981',
   avatar_url TEXT,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'forgotten')),
+  status TEXT DEFAULT 'active',
   is_consulting BOOLEAN DEFAULT false,
   notes TEXT,
   access_code TEXT UNIQUE,
@@ -116,29 +127,34 @@ CREATE TABLE public.students (
 
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Trainers can view their own students" ON public.students;
 CREATE POLICY "Trainers can view their own students"
 ON public.students FOR SELECT
 USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Trainers can insert their own students" ON public.students;
 CREATE POLICY "Trainers can insert their own students"
 ON public.students FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can update their own students" ON public.students;
 CREATE POLICY "Trainers can update their own students"
 ON public.students FOR UPDATE USING (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can delete their own students" ON public.students;
 CREATE POLICY "Trainers can delete their own students"
 ON public.students FOR DELETE USING (auth.uid() = trainer_id);
 
+DROP TRIGGER IF EXISTS update_students_updated_at ON public.students;
 CREATE TRIGGER update_students_updated_at
 BEFORE UPDATE ON public.students
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE INDEX idx_students_trainer ON public.students(trainer_id);
-CREATE INDEX idx_students_status ON public.students(status);
+CREATE INDEX IF NOT EXISTS idx_students_trainer ON public.students(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_students_status ON public.students(status);
 
 -- ==================== SESSIONS ====================
 
-CREATE TABLE public.sessions (
+CREATE TABLE IF NOT EXISTS public.sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   trainer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
@@ -146,7 +162,7 @@ CREATE TABLE public.sessions (
   scheduled_time TIME NOT NULL,
   duration_minutes INTEGER DEFAULT 60,
   location TEXT,
-  status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled')),
+  status TEXT DEFAULT 'scheduled',
   notes TEXT,
   muscle_groups TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -155,66 +171,80 @@ CREATE TABLE public.sessions (
 
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Trainers can view their own sessions" ON public.sessions;
 CREATE POLICY "Trainers can view their own sessions"
 ON public.sessions FOR SELECT
 USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Trainers can insert their own sessions" ON public.sessions;
 CREATE POLICY "Trainers can insert their own sessions"
 ON public.sessions FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can update their own sessions" ON public.sessions;
 CREATE POLICY "Trainers can update their own sessions"
 ON public.sessions FOR UPDATE USING (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can delete their own sessions" ON public.sessions;
 CREATE POLICY "Trainers can delete their own sessions"
 ON public.sessions FOR DELETE USING (auth.uid() = trainer_id);
 
+DROP TRIGGER IF EXISTS update_sessions_updated_at ON public.sessions;
 CREATE TRIGGER update_sessions_updated_at
 BEFORE UPDATE ON public.sessions
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-CREATE INDEX idx_sessions_trainer ON public.sessions(trainer_id);
-CREATE INDEX idx_sessions_date ON public.sessions(scheduled_date);
-CREATE INDEX idx_sessions_student ON public.sessions(student_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_trainer ON public.sessions(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_date ON public.sessions(scheduled_date);
+CREATE INDEX IF NOT EXISTS idx_sessions_student ON public.sessions(student_id);
 
 -- ==================== STORAGE BUCKETS ====================
 
-INSERT INTO storage.buckets (id, name, public) VALUES ('progress-photos', 'progress-photos', false);
-INSERT INTO storage.buckets (id, name, public) VALUES ('bioimpedance-reports', 'bioimpedance-reports', false);
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('progress-photos', 'progress-photos', false)
+ON CONFLICT (id) DO NOTHING;
 
--- Storage policies for progress-photos
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('bioimpedance-reports', 'bioimpedance-reports', false)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Trainers can upload progress photos" ON storage.objects;
 CREATE POLICY "Trainers can upload progress photos"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'progress-photos' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Trainers view own progress photos" ON storage.objects;
 CREATE POLICY "Trainers view own progress photos"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'progress-photos' AND (storage.foldername(name))[1] = auth.uid()::text);
 
+DROP POLICY IF EXISTS "Trainers can delete progress photos" ON storage.objects;
 CREATE POLICY "Trainers can delete progress photos"
 ON storage.objects FOR DELETE
 USING (bucket_id = 'progress-photos' AND auth.role() = 'authenticated');
 
--- Storage policies for bioimpedance-reports
+DROP POLICY IF EXISTS "Trainers can upload bioimpedance reports" ON storage.objects;
 CREATE POLICY "Trainers can upload bioimpedance reports"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'bioimpedance-reports' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Trainers view own bioimpedance reports" ON storage.objects;
 CREATE POLICY "Trainers view own bioimpedance reports"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'bioimpedance-reports' AND (storage.foldername(name))[1] = auth.uid()::text);
 
+DROP POLICY IF EXISTS "Trainers can delete bioimpedance reports" ON storage.objects;
 CREATE POLICY "Trainers can delete bioimpedance reports"
 ON storage.objects FOR DELETE
 USING (bucket_id = 'bioimpedance-reports' AND auth.role() = 'authenticated');
 
 -- ==================== PROGRESS PHOTOS ====================
 
-CREATE TABLE public.progress_photos (
+CREATE TABLE IF NOT EXISTS public.progress_photos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   trainer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   photo_url TEXT NOT NULL,
-  photo_type TEXT DEFAULT 'front' CHECK (photo_type IN ('front', 'side', 'back', 'other')),
+  photo_type TEXT DEFAULT 'front',
   taken_at DATE NOT NULL DEFAULT CURRENT_DATE,
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -222,21 +252,24 @@ CREATE TABLE public.progress_photos (
 
 ALTER TABLE public.progress_photos ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Trainers can view their students photos" ON public.progress_photos;
 CREATE POLICY "Trainers can view their students photos"
 ON public.progress_photos FOR SELECT
 USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Trainers can insert photos" ON public.progress_photos;
 CREATE POLICY "Trainers can insert photos"
 ON public.progress_photos FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can delete photos" ON public.progress_photos;
 CREATE POLICY "Trainers can delete photos"
 ON public.progress_photos FOR DELETE USING (auth.uid() = trainer_id);
 
-CREATE INDEX idx_progress_photos_student ON public.progress_photos(student_id);
+CREATE INDEX IF NOT EXISTS idx_progress_photos_student ON public.progress_photos(student_id);
 
 -- ==================== BIOIMPEDANCE ====================
 
-CREATE TABLE public.bioimpedance (
+CREATE TABLE IF NOT EXISTS public.bioimpedance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   trainer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -255,30 +288,34 @@ CREATE TABLE public.bioimpedance (
 
 ALTER TABLE public.bioimpedance ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Trainers can view their bioimpedance records" ON public.bioimpedance;
 CREATE POLICY "Trainers can view their bioimpedance records"
 ON public.bioimpedance FOR SELECT
 USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Trainers can insert bioimpedance" ON public.bioimpedance;
 CREATE POLICY "Trainers can insert bioimpedance"
 ON public.bioimpedance FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can update bioimpedance" ON public.bioimpedance;
 CREATE POLICY "Trainers can update bioimpedance"
 ON public.bioimpedance FOR UPDATE USING (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can delete bioimpedance" ON public.bioimpedance;
 CREATE POLICY "Trainers can delete bioimpedance"
 ON public.bioimpedance FOR DELETE USING (auth.uid() = trainer_id);
 
-CREATE INDEX idx_bioimpedance_student ON public.bioimpedance(student_id);
+CREATE INDEX IF NOT EXISTS idx_bioimpedance_student ON public.bioimpedance(student_id);
 
 -- ==================== PAYMENTS ====================
 
-CREATE TABLE public.payments (
+CREATE TABLE IF NOT EXISTS public.payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   trainer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   amount NUMERIC(10,2) NOT NULL,
   reference_month TEXT NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('paid', 'pending', 'overdue')),
+  status TEXT DEFAULT 'pending',
   paid_at TIMESTAMPTZ,
   payment_method TEXT,
   notes TEXT,
@@ -288,34 +325,39 @@ CREATE TABLE public.payments (
 
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Trainers can view their payments" ON public.payments;
 CREATE POLICY "Trainers can view their payments"
 ON public.payments FOR SELECT
 USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Trainers can insert payments" ON public.payments;
 CREATE POLICY "Trainers can insert payments"
 ON public.payments FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can update payments" ON public.payments;
 CREATE POLICY "Trainers can update payments"
 ON public.payments FOR UPDATE USING (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can delete payments" ON public.payments;
 CREATE POLICY "Trainers can delete payments"
 ON public.payments FOR DELETE USING (auth.uid() = trainer_id);
 
-CREATE INDEX idx_payments_student ON public.payments(student_id);
-CREATE INDEX idx_payments_month ON public.payments(reference_month);
+CREATE INDEX IF NOT EXISTS idx_payments_student ON public.payments(student_id);
+CREATE INDEX IF NOT EXISTS idx_payments_month ON public.payments(reference_month);
 
+DROP TRIGGER IF EXISTS update_payments_updated_at ON public.payments;
 CREATE TRIGGER update_payments_updated_at
 BEFORE UPDATE ON public.payments
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ==================== ASSESSMENTS ====================
 
-CREATE TABLE public.assessments (
+CREATE TABLE IF NOT EXISTS public.assessments (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   trainer_id UUID NOT NULL,
   measured_at DATE NOT NULL DEFAULT CURRENT_DATE,
-  sex TEXT NOT NULL CHECK (sex IN ('male', 'female')),
+  sex TEXT NOT NULL,
   age INTEGER NOT NULL,
   weight NUMERIC NOT NULL,
   skinfold_chest NUMERIC,
@@ -348,22 +390,26 @@ CREATE TABLE public.assessments (
 
 ALTER TABLE public.assessments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Trainers can view their assessments" ON public.assessments;
 CREATE POLICY "Trainers can view their assessments"
 ON public.assessments FOR SELECT
 USING ((auth.uid() = trainer_id) OR has_role(auth.uid(), 'admin'::app_role));
 
+DROP POLICY IF EXISTS "Trainers can insert assessments" ON public.assessments;
 CREATE POLICY "Trainers can insert assessments"
 ON public.assessments FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can update assessments" ON public.assessments;
 CREATE POLICY "Trainers can update assessments"
 ON public.assessments FOR UPDATE USING (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can delete assessments" ON public.assessments;
 CREATE POLICY "Trainers can delete assessments"
 ON public.assessments FOR DELETE USING (auth.uid() = trainer_id);
 
 -- ==================== TRAINER SUBSCRIPTIONS ====================
 
-CREATE TABLE public.trainer_subscriptions (
+CREATE TABLE IF NOT EXISTS public.trainer_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   trainer_id UUID NOT NULL,
   plan TEXT NOT NULL DEFAULT 'free',
@@ -377,24 +423,27 @@ CREATE TABLE public.trainer_subscriptions (
 
 ALTER TABLE public.trainer_subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can manage subscriptions" ON public.trainer_subscriptions;
 CREATE POLICY "Admins can manage subscriptions"
 ON public.trainer_subscriptions FOR ALL
 USING (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Trainers view own subscription" ON public.trainer_subscriptions;
 CREATE POLICY "Trainers view own subscription"
 ON public.trainer_subscriptions FOR SELECT
 USING (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can update own subscription" ON public.trainer_subscriptions;
 CREATE POLICY "Trainers can update own subscription"
 ON public.trainer_subscriptions FOR UPDATE
 USING (auth.uid() = trainer_id)
 WITH CHECK (auth.uid() = trainer_id);
 
+DROP TRIGGER IF EXISTS update_trainer_subscriptions_updated_at ON public.trainer_subscriptions;
 CREATE TRIGGER update_trainer_subscriptions_updated_at
 BEFORE UPDATE ON public.trainer_subscriptions
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- Auto-create free subscription on profile creation
 CREATE OR REPLACE FUNCTION public.create_free_subscription()
 RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -406,13 +455,14 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_profile_created ON public.profiles;
 CREATE TRIGGER on_profile_created
 AFTER INSERT ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION public.create_free_subscription();
 
 -- ==================== PUSH SUBSCRIPTIONS ====================
 
-CREATE TABLE public.push_subscriptions (
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   trainer_id UUID NOT NULL,
   endpoint TEXT NOT NULL,
@@ -426,25 +476,29 @@ CREATE TABLE public.push_subscriptions (
 
 ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Trainers can view their own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Trainers can view their own subscriptions"
 ON public.push_subscriptions FOR SELECT USING (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can insert their own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Trainers can insert their own subscriptions"
 ON public.push_subscriptions FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can update their own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Trainers can update their own subscriptions"
 ON public.push_subscriptions FOR UPDATE USING (auth.uid() = trainer_id);
 
+DROP POLICY IF EXISTS "Trainers can delete their own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Trainers can delete their own subscriptions"
 ON public.push_subscriptions FOR DELETE USING (auth.uid() = trainer_id);
 
+DROP TRIGGER IF EXISTS update_push_subscriptions_updated_at ON public.push_subscriptions;
 CREATE TRIGGER update_push_subscriptions_updated_at
 BEFORE UPDATE ON public.push_subscriptions
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ==================== FUNCTIONS ====================
 
--- Student limit check (free plan = max 5 active students)
 CREATE OR REPLACE FUNCTION public.check_student_limit()
 RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -488,11 +542,11 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS check_student_limit_trigger ON public.students;
 CREATE TRIGGER check_student_limit_trigger
-BEFORE INSERT OR UPDATE ON students
-FOR EACH ROW EXECUTE FUNCTION check_student_limit();
+BEFORE INSERT OR UPDATE ON public.students
+FOR EACH ROW EXECUTE FUNCTION public.check_student_limit();
 
--- Admin trainer overview
 CREATE OR REPLACE FUNCTION public.admin_trainer_overview()
 RETURNS TABLE(user_id UUID, full_name TEXT, email TEXT, plan TEXT, sub_status TEXT, active_students BIGINT, created_at TIMESTAMPTZ)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
@@ -518,7 +572,6 @@ BEGIN
 END;
 $$;
 
--- Student portal functions
 CREATE OR REPLACE FUNCTION public.get_student_by_code(_code TEXT)
 RETURNS SETOF public.students
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -568,7 +621,7 @@ $$;
 -- =============================================
 -- FIM DO SCRIPT
 -- =============================================
--- 
+--
 -- APÓS RODAR ESTE SCRIPT, CONFIGURE:
 --
 -- 1. Secrets no Supabase (Settings > Edge Functions):
@@ -578,6 +631,7 @@ $$;
 --    - LOVABLE_API_KEY
 --
 -- 2. Deploy das Edge Functions via CLI:
+--    supabase link --project-ref SEU-PROJECT-ID
 --    supabase functions deploy extract-bioimpedance
 --    supabase functions deploy create-checkout
 --    supabase functions deploy check-subscription
@@ -586,7 +640,7 @@ $$;
 --    supabase functions deploy push-notify
 --    supabase functions deploy generate-vapid-keys
 --
--- 3. Atualize .env do frontend:
+-- 3. Configure o .env do frontend (produção):
 --    VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 --    VITE_SUPABASE_ANON_KEY=sua-anon-key
 -- =============================================
