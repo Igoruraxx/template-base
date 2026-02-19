@@ -14,7 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { StudentLimitModal } from '@/components/StudentLimitModal';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, User, Key, Copy, Shield, FileText, MessageCircle, Crown, Clock, Bell, BellOff } from 'lucide-react';
+import { LogOut, User, Key, Copy, Shield, MessageCircle, Crown, Clock, Bell, BellOff } from 'lucide-react';
 import { subscribeToPush, unsubscribeFromPush, isPushSubscribed, updateDailySummaryHour } from '@/lib/pushNotifications';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { jsPDF } from 'jspdf';
@@ -249,24 +249,6 @@ const Profile = () => {
             </Button>
           </div>
 
-          {/* PDF generator */}
-          <div className="glass rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <FileText className="h-4 w-4 text-primary" />
-              <p className="font-medium text-sm">Relatório PDF</p>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Gere um relatório completo com dados do aluno
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {students?.filter(s => s.status === 'active').slice(0, 6).map(s => (
-                <Button key={s.id} variant="outline" size="sm" className="rounded-xl text-xs"
-                  onClick={() => generatePDF(s.id)}>
-                  {s.name}
-                </Button>
-              ))}
-            </div>
-          </div>
         </motion.div>
 
         {/* Notifications */}

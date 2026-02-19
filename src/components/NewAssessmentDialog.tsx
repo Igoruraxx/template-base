@@ -37,6 +37,7 @@ export const NewAssessmentDialog = ({ open, onOpenChange, studentId }: Props) =>
 
   const set = (key: string, val: string) => setF(p => ({ ...p, [key]: val }));
 
+  // Calc is optional - only computed when all 7 skinfolds + sex + age + weight are present
   const calc = useMemo(() => {
     const s = [f.chest, f.axillary, f.triceps, f.subscapular, f.abdominal, f.suprailiac, f.thigh].map(Number);
     const age = parseInt(f.age);
@@ -50,14 +51,16 @@ export const NewAssessmentDialog = ({ open, onOpenChange, studentId }: Props) =>
     return { sum, dc: Math.round(dc * 10000) / 10000, fat: Math.round(fat * 100) / 100, ...comp };
   }, [f]);
 
+  const canSave = !!f.measuredAt && !!f.weight && parseFloat(f.weight) > 0;
+
   const handleSave = async () => {
-    if (!calc) { toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' }); return; }
+    if (!canSave) { toast({ title: 'Data e peso são obrigatórios', variant: 'destructive' }); return; }
     try {
       await create.mutateAsync({
         student_id: studentId,
         measured_at: f.measuredAt,
-        sex: f.sex as 'male' | 'female',
-        age: parseInt(f.age),
+        sex: (f.sex as 'male' | 'female') || 'male',
+        age: parseInt(f.age) || 0,
         weight: parseFloat(f.weight),
         skinfold_chest: num(f.chest), skinfold_axillary: num(f.axillary), skinfold_triceps: num(f.triceps),
         skinfold_subscapular: num(f.subscapular), skinfold_abdominal: num(f.abdominal),
@@ -67,8 +70,9 @@ export const NewAssessmentDialog = ({ open, onOpenChange, studentId }: Props) =>
         perim_arm_relaxed: num(f.pArmRelaxed), perim_arm_contracted: num(f.pArmContracted),
         perim_forearm: num(f.pForearm), perim_thigh_proximal: num(f.pThighProximal),
         perim_thigh_mid: num(f.pThighMid), perim_calf: num(f.pCalf),
-        body_density: calc.dc, body_fat_pct: calc.fat, fat_mass_kg: calc.fat_mass_kg,
-        lean_mass_kg: calc.lean_mass_kg, sum_skinfolds: calc.sum,
+        body_density: calc?.dc ?? null, body_fat_pct: calc?.fat ?? null,
+        fat_mass_kg: calc?.fat_mass_kg ?? null, lean_mass_kg: calc?.lean_mass_kg ?? null,
+        sum_skinfolds: calc?.sum ?? null,
         notes: f.notes || null,
       });
       toast({ title: 'Avaliação salva!' });
@@ -174,7 +178,7 @@ export const NewAssessmentDialog = ({ open, onOpenChange, studentId }: Props) =>
               className="bg-muted/50 border-border/50 rounded-xl h-10 mt-1" />
           </div>
 
-          <Button onClick={handleSave} disabled={create.isPending || !calc}
+          <Button onClick={handleSave} disabled={create.isPending || !canSave}
             className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold">
             {create.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Salvando...</> : 'Salvar Avaliação'}
           </Button>
