@@ -37,10 +37,7 @@ export const useCreateBioimpedance = () => {
           .from('bioimpedance-reports')
           .upload(path, record.reportFile);
         if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage
-          .from('bioimpedance-reports')
-          .getPublicUrl(path);
-        reportUrl = publicUrl;
+        reportUrl = path;
       }
 
       const { data, error } = await supabase.from('bioimpedance').insert({

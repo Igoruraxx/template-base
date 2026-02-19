@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -10,14 +10,17 @@ import { KeyRound, User, Calendar, Camera, TrendingUp } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { MuscleGroupBadges } from '@/components/MuscleGroupSelector';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { extractStoragePath } from '@/lib/storageUtils';
 
 const StudentPortal = () => {
   const { toast } = useToast();
   const [code, setCode] = useState('');
+  const [accessCode, setAccessCode] = useState('');
   const [student, setStudent] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
   const [bioRecords, setBioRecords] = useState<any[]>([]);
+  const [signedPhotoUrls, setSignedPhotoUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<'sessions' | 'photos' | 'bio'>('sessions');
 
@@ -36,6 +39,7 @@ const StudentPortal = () => {
 
       const s = students[0];
       setStudent(s);
+      setAccessCode(code.trim());
 
       // Fetch data via security definer RPCs (works without auth)
       const [sessRes, photoRes, bioRes] = await Promise.all([
@@ -44,8 +48,31 @@ const StudentPortal = () => {
         supabase.rpc('get_student_bio', { _student_id: s.id }),
       ]);
       setSessions(sessRes.data || []);
-      setPhotos(photoRes.data || []);
+      const photoData = photoRes.data || [];
+      setPhotos(photoData);
       setBioRecords(bioRes.data || []);
+
+      // Get signed URLs for photos
+      if (photoData.length > 0) {
+        const paths = photoData.map((p: any) => extractStoragePath(p.photo_url, 'progress-photos'));
+        try {
+          const { data: signedData } = await supabase.functions.invoke('student-signed-urls', {
+            body: { accessCode: code.trim(), paths, bucket: 'progress-photos' },
+          });
+          if (signedData?.signedUrls) {
+            const urlMap: Record<string, string> = {};
+            photoData.forEach((p: any) => {
+              const path = extractStoragePath(p.photo_url, 'progress-photos');
+              if (signedData.signedUrls[path]) {
+                urlMap[p.id] = signedData.signedUrls[path];
+              }
+            });
+            setSignedPhotoUrls(urlMap);
+          }
+        } catch (err) {
+          console.warn('Failed to get signed URLs:', err);
+        }
+      }
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
     } finally {
@@ -159,7 +186,7 @@ const StudentPortal = () => {
             <div className="grid grid-cols-3 gap-2">
               {photos.map(p => (
                 <div key={p.id} className="rounded-xl overflow-hidden aspect-[3/4]">
-                  <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
+                  <img src={signedPhotoUrls[p.id] || ''} alt="" className="w-full h-full object-cover" />
                 </div>
               ))}
             </div>

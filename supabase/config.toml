@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.register-push]
 verify_jwt = false
+
+[functions.student-signed-urls]
+verify_jwt = false

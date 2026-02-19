@@ -36,14 +36,10 @@ export const useUploadProgressPhoto = () => {
         .upload(path, file);
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('progress-photos')
-        .getPublicUrl(path);
-
       const { data, error } = await supabase.from('progress_photos').insert({
         student_id: studentId,
         trainer_id: user!.id,
-        photo_url: publicUrl,
+        photo_url: path,
         photo_type: photoType,
         taken_at: takenAt,
         notes: notes || null,
