@@ -506,49 +506,53 @@ const StudentForm = ({ form, setForm, scheduleConfig, handleSessionsPerWeekChang
       </div>
     )}
 
-    <div>
-      <Label className="text-muted-foreground text-xs">Frequência semanal</Label>
-      <div className="flex gap-1.5 mt-1.5">
-        {['1', '2', '3', '4', '5', '6'].map(v => (
-          <button key={v} type="button" onClick={() => handleSessionsPerWeekChange(v)}
-            className={cn('h-10 w-10 rounded-xl text-sm font-semibold transition-all',
-              form.sessions_per_week === v
-                ? 'gradient-primary text-primary-foreground shadow-md'
-                : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
-            {v}x
-          </button>
-        ))}
-      </div>
-    </div>
-
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-muted-foreground text-xs">Dias e horários</Label>
-        {scheduleConfig.length > 1 && (
-          <button type="button" onClick={setAllTimesEqual}
-            className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-medium transition-colors">
-            <Copy className="h-3 w-3" /> Mesmo horário para todos
-          </button>
-        )}
-      </div>
-      {scheduleConfig.map((entry, idx) => (
-        <div key={idx} className="flex gap-2 items-center">
-          <Select value={entry.day} onValueChange={(v) => updateScheduleEntry(idx, 'day', v)}>
-            <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-10 flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {WEEKDAYS.map(d => (
-                <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input type="time" value={entry.time}
-            onChange={(e) => updateScheduleEntry(idx, 'time', e.target.value)}
-            className="bg-muted/50 border-border/50 rounded-xl h-10 w-28" />
+    {!form.is_consulting && (
+      <>
+        <div>
+          <Label className="text-muted-foreground text-xs">Frequência semanal</Label>
+          <div className="flex gap-1.5 mt-1.5">
+            {['1', '2', '3', '4', '5', '6'].map(v => (
+              <button key={v} type="button" onClick={() => handleSessionsPerWeekChange(v)}
+                className={cn('h-10 w-10 rounded-xl text-sm font-semibold transition-all',
+                  form.sessions_per_week === v
+                    ? 'gradient-primary text-primary-foreground shadow-md'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
+                {v}x
+              </button>
+            ))}
+          </div>
         </div>
-      ))}
-    </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-muted-foreground text-xs">Dias e horários</Label>
+            {scheduleConfig.length > 1 && (
+              <button type="button" onClick={setAllTimesEqual}
+                className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-medium transition-colors">
+                <Copy className="h-3 w-3" /> Mesmo horário para todos
+              </button>
+            )}
+          </div>
+          {scheduleConfig.map((entry, idx) => (
+            <div key={idx} className="flex gap-2 items-center">
+              <Select value={entry.day} onValueChange={(v) => updateScheduleEntry(idx, 'day', v)}>
+                <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-10 flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WEEKDAYS.map(d => (
+                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input type="time" value={entry.time}
+                onChange={(e) => updateScheduleEntry(idx, 'time', e.target.value)}
+                className="bg-muted/50 border-border/50 rounded-xl h-10 w-28" />
+            </div>
+          ))}
+        </div>
+      </>
+    )}
 
     <div className="grid grid-cols-2 gap-3">
       <div>
