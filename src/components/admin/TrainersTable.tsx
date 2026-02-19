@@ -22,6 +22,7 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [advancedFilter, setAdvancedFilter] = useState<string>('all');
   const [selectedTrainer, setSelectedTrainer] = useState<TrainerOverview | null>(null);
 
   const filtered = trainers.filter((t) => {
@@ -35,7 +36,11 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
     if (statusFilter === 'blocked') matchStatus = t.sub_status === 'blocked';
     if (statusFilter === 'pending') matchStatus = t.sub_status === 'pending_pix';
 
-    return matchSearch && matchPlan && matchStatus;
+    let matchAdvanced = true;
+    if (advancedFilter === 'debt') matchAdvanced = t.sub_status === 'pending_pix';
+    if (advancedFilter === 'risk') matchAdvanced = t.plan === 'free' && t.active_students === 0;
+
+    return matchSearch && matchPlan && matchStatus && matchAdvanced;
   });
 
   return (
@@ -50,9 +55,21 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
             className="pl-10"
           />
         </div>
+        
+        <Select value={advancedFilter} onValueChange={setAdvancedFilter}>
+          <SelectTrigger className="w-full sm:w-[160px] border-primary/20 bg-primary/5">
+            <SelectValue placeholder="Inteligência" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas Métricas</SelectItem>
+            <SelectItem value="debt" className="text-amber-500 font-medium">💰 Inadimplentes</SelectItem>
+            <SelectItem value="risk" className="text-destructive font-medium">⚠️ Em Risco (0 Alunos)</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Select value={planFilter} onValueChange={setPlanFilter}>
-          <SelectTrigger className="w-full sm:w-[150px]">
-            <SelectValue placeholder="Filtrar plano" />
+          <SelectTrigger className="w-full sm:w-[130px]">
+            <SelectValue placeholder="Plano" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos Planos</SelectItem>
@@ -62,8 +79,8 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
         </Select>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[150px]">
-            <SelectValue placeholder="Filtrar status" />
+          <SelectTrigger className="w-full sm:w-[130px]">
+            <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos Status</SelectItem>
@@ -74,7 +91,7 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
         </Select>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="rounded-lg border border-border overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -123,47 +140,13 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                   )}
                 </TableCell>
                 <TableCell className="text-right space-x-1">
-                  {t.sub_status === 'pending_pix' && onConfirmPix && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-amber-400 hover:text-amber-300 border-amber-500/30"
-                      onClick={() => onConfirmPix(t.user_id)}
-                      disabled={isConfirmingPix}
-                    >
-                      <CreditCard className="h-3.5 w-3.5 mr-1" />
-                      Confirmar PIX
-                    </Button>
-                  )}
-                  {t.sub_status === 'blocked' ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onBlock(t.user_id, false)}
-                      disabled={isBlocking}
-                    >
-                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                      Desbloquear
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => onBlock(t.user_id, true)}
-                      disabled={isBlocking}
-                    >
-                      <Ban className="h-3.5 w-3.5 mr-1" />
-                      Bloquear
-                    </Button>
-                  )}
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setSelectedTrainer(t)}
                   >
                     <Eye className="h-3.5 w-3.5 mr-1" />
-                    Detalhes
+                    Ficha Completa
                   </Button>
                   {onDelete && (
                     <Button

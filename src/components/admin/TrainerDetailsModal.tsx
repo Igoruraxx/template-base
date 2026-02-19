@@ -8,111 +8,224 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useTrainerStudents, TrainerOverview } from "@/hooks/useAdminData";
+import { useTrainerStudents, useTrainerSubscriptionDetails, TrainerOverview } from "@/hooks/useAdminData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Mail, Calendar, Users, Shield, CreditCard } from "lucide-react";
+import { Mail, Calendar, Users, Shield, CreditCard, Ban, CheckCircle, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 interface TrainerDetailsModalProps {
   trainer: TrainerOverview | null;
   isOpen: boolean;
   onClose: () => void;
+  onBlock?: (trainerId: string, blocked: boolean) => void;
+  isBlocking?: boolean;
+  onConfirmPix?: (trainerId: string) => void;
+  isConfirmingPix?: boolean;
+  onDelete?: (trainerId: string) => void;
+  isDeleting?: boolean;
 }
 
-export const TrainerDetailsModal = ({ trainer, isOpen, onClose }: TrainerDetailsModalProps) => {
-  const { data: students, isLoading } = useTrainerStudents(trainer?.user_id || null);
+export const TrainerDetailsModal = ({ 
+  trainer, 
+  isOpen, 
+  onClose,
+  onBlock,
+  isBlocking,
+  onConfirmPix,
+  isConfirmingPix,
+  onDelete,
+  isDeleting
+}: TrainerDetailsModalProps) => {
+  const { data: students, isLoading: isLoadingStudents } = useTrainerStudents(trainer?.user_id || null);
+  const { data: subDetails, isLoading: isLoadingSub } = useTrainerSubscriptionDetails(trainer?.user_id || null);
 
   if (!trainer) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <div className="flex items-center gap-4 mb-2">
-            <Avatar className="h-16 w-16 border-2 border-border">
+      <DialogContent className="max-w-3xl h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
+        
+        {/* HEADER & QUICK ACTIONS */}
+        <div className="p-6 border-b bg-card/50 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16 border-2 border-border shadow-sm">
               <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${trainer.full_name}`} />
               <AvatarFallback>{trainer.full_name.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div>
-              <DialogTitle className="text-2xl">{trainer.full_name}</DialogTitle>
-              <DialogDescription className="text-base flex items-center gap-2 mt-1">
-                <Mail className="h-4 w-4" /> {trainer.email}
+              <DialogTitle className="text-2xl font-black">{trainer.full_name}</DialogTitle>
+              <DialogDescription className="text-sm flex items-center gap-2 mt-1">
+                <Mail className="h-3.5 w-3.5" /> {trainer.email}
               </DialogDescription>
             </div>
           </div>
-        </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
-          <div className="p-4 border rounded-lg bg-card space-y-2">
-             <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Shield className="h-4 w-4" /> Status
-             </div>
-             <div className="flex gap-2">
-                {trainer.sub_status === 'blocked' ? (
-                    <Badge variant="destructive">Bloqueado</Badge>
-                  ) : trainer.sub_status === 'pending_pix' ? (
-                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">PIX Pendente</Badge>
-                  ) : (
-                    <Badge className="bg-primary/20 text-primary border-primary/30">Ativo</Badge>
-                  )}
-             </div>
-          </div>
+          <div className="flex flex-wrap gap-2">
+            {trainer.sub_status === 'pending_pix' && onConfirmPix && (
+              <Button size="sm" variant="outline" className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10" 
+                      onClick={() => onConfirmPix(trainer.user_id)} disabled={isConfirmingPix}>
+                <CreditCard className="h-4 w-4 mr-1" /> Confirmar PIX
+              </Button>
+            )}
+            
+            {onBlock && (
+              trainer.sub_status === 'blocked' ? (
+                <Button size="sm" variant="outline" onClick={() => onBlock(trainer.user_id, false)} disabled={isBlocking}>
+                  <CheckCircle className="h-4 w-4 mr-1" /> Desbloquear
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10 border-destructive/30" 
+                        onClick={() => onBlock(trainer.user_id, true)} disabled={isBlocking}>
+                  <Ban className="h-4 w-4 mr-1" /> Bloquear
+                </Button>
+              )
+            )}
 
-          <div className="p-4 border rounded-lg bg-card space-y-2">
-             <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <CreditCard className="h-4 w-4" /> Plano
-             </div>
-             <div className="font-semibold text-lg capitalize">{trainer.plan}</div>
-          </div>
-
-          <div className="p-4 border rounded-lg bg-card space-y-2">
-             <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Calendar className="h-4 w-4" /> Membro desde
-             </div>
-             <div className="font-semibold text-lg">
-                {trainer.created_at ? format(new Date(trainer.created_at), "MMM yyyy", { locale: ptBR }) : '-'}
-             </div>
+            {onDelete && (
+                <Button size="sm" variant="ghost" className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive" 
+                        onClick={() => onDelete(trainer.user_id)} disabled={isDeleting}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 flex flex-col pt-4 border-t">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <Users className="h-4 w-4" /> Alunos Vinculados ({trainer.active_students})
-            </h3>
-            
-            <ScrollArea className="flex-1 -mr-4 pr-4">
-                {isLoading ? (
-                     <div className="space-y-2">
-                        {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-lg" />)}
+        {/* CONTENT & TABS */}
+        <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
+          <div className="px-6 pt-4 border-b">
+            <TabsList className="bg-muted/50 w-full justify-start rounded-b-none border-b-0">
+              <TabsTrigger value="overview" className="flex-1 sm:flex-none">Visão Geral</TabsTrigger>
+              <TabsTrigger value="students" className="flex-1 sm:flex-none">Alunos ({trainer.active_students})</TabsTrigger>
+              <TabsTrigger value="finance" className="flex-1 sm:flex-none">Financeiro</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <ScrollArea className="flex-1 p-6">
+            <TabsContent value="overview" className="m-0 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 border rounded-xl bg-card shadow-sm space-y-2">
+                    <div className="flex items-center justify-between text-muted-foreground text-sm">
+                        <span className="flex items-center gap-2"><Shield className="h-4 w-4" /> Status</span>
+                    </div>
+                    <div>
+                        {trainer.sub_status === 'blocked' ? (
+                            <Badge variant="destructive" className="mt-1">Bloqueado</Badge>
+                        ) : trainer.sub_status === 'pending_pix' ? (
+                            <Badge className="mt-1 bg-amber-500/20 text-amber-500 hover:bg-amber-500/30">PIX Pendente</Badge>
+                        ) : (
+                            <Badge className="mt-1 bg-primary/20 text-primary hover:bg-primary/30">Ativo</Badge>
+                        )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 border rounded-xl bg-card shadow-sm space-y-2">
+                    <div className="flex items-center justify-between text-muted-foreground text-sm">
+                        <span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Plano Atual</span>
+                    </div>
+                    <div className="font-bold text-lg capitalize">{trainer.plan === 'premium' ? <span className="text-amber-500">Premium ✨</span> : 'Gratuito'}</div>
+                  </div>
+
+                  <div className="p-4 border rounded-xl bg-card shadow-sm space-y-2">
+                    <div className="flex items-center justify-between text-muted-foreground text-sm">
+                        <span className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Na plataforma desde</span>
+                    </div>
+                    <div className="font-bold text-lg">
+                        {trainer.created_at ? format(new Date(trainer.created_at), "MMM yyyy", { locale: ptBR }) : '-'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-dashed bg-muted/20 text-sm text-muted-foreground">
+                    <p><strong>Nota do Sistema:</strong> Esta é a Visão 360º. Utilize as ações no cabeçalho para gerenciar os acessos deste treinador. Alterações no plano Premium manual entram em vigor imediatamente.</p>
+                </div>
+            </TabsContent>
+
+            <TabsContent value="students" className="m-0 space-y-4">
+               {isLoadingStudents ? (
+                     <div className="space-y-3">
+                        {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
                      </div>
                 ) : students?.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground text-sm bg-muted/20 rounded-lg border border-dashed">
-                        Nenhum aluno cadastrado para este treinador.
+                    <div className="text-center py-12 text-muted-foreground bg-card/30 rounded-xl border border-dashed">
+                        Nenhum aluno cadastrado por este treinador ainda.
                     </div>
                 ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {students?.map(student => (
-                            <div key={student.id} className="flex items-center justify-between p-3 rounded-lg border bg-card/50">
-                                <div className="flex items-center gap-3">
-                                    <Avatar className="h-9 w-9">
+                            <div key={student.id} className="flex items-center justify-between p-4 rounded-xl border bg-card/50 hover:border-primary/30 transition-colors">
+                                <div className="flex items-center gap-4">
+                                    <Avatar className="h-10 w-10 border shadow-sm">
                                         <AvatarImage src={student.avatar_url || undefined} />
                                         <AvatarFallback>{student.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <p className="font-medium text-sm">{student.name}</p>
-                                        <p className="text-xs text-muted-foreground">{student.email}</p>
+                                        <p className="font-bold text-sm">{student.name}</p>
+                                        <p className="text-xs text-muted-foreground flex items-center gap-2">
+                                            {student.email} 
+                                            {student.is_consulting && <Badge variant="secondary" className="text-[9px] h-4 px-1">Consultoria</Badge>}
+                                        </p>
                                     </div>
                                 </div>
-                                <Badge variant="outline" className={student.status === 'active' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}>
-                                    {student.status === 'active' ? 'Ativo' : 'Inativo'}
-                                </Badge>
+                                <div className="text-right">
+                                    <Badge variant="outline" className={student.status === 'active' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}>
+                                        {student.status === 'active' ? 'Ativo' : 'Inativo'}
+                                    </Badge>
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
-            </ScrollArea>
-        </div>
+            </TabsContent>
+
+            <TabsContent value="finance" className="m-0 space-y-4">
+                {isLoadingSub ? (
+                     <Skeleton className="h-48 rounded-xl" />
+                ) : subDetails ? (
+                    <div className="p-6 border rounded-xl bg-card shadow-sm space-y-6">
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <div>
+                                <h4 className="font-bold text-lg flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" /> Ficha Financeira</h4>
+                                <p className="text-xs text-muted-foreground">ID da Assinatura: {subDetails.id.split('-')[0]}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm text-muted-foreground">Valor Mensal</p>
+                                <p className="font-black text-xl text-emerald-500">R$ {subDetails.price || '0,00'}</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 text-sm gap-y-4">
+                            <div>
+                                <p className="text-muted-foreground mb-1">Início do Ciclo Atual</p>
+                                <p className="font-medium">
+                                    {subDetails.started_at ? format(new Date(subDetails.started_at), "dd 'de' MMM, yyyy", { locale: ptBR }) : '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-muted-foreground mb-1">Próximo Vencimento</p>
+                                <p className="font-medium">
+                                    {subDetails.expires_at ? format(new Date(subDetails.expires_at), "dd 'de' MMM, yyyy", { locale: ptBR }) : '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-muted-foreground mb-1">Status de Faturamento</p>
+                                <Badge variant="outline" className={subDetails.status === 'active' ? 'border-primary text-primary' : 'border-destructive text-destructive'}>
+                                    {subDetails.status === 'active' ? 'Em dia' : subDetails.status.toUpperCase()}
+                                </Badge>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-12 text-muted-foreground bg-card/30 rounded-xl border border-dashed">
+                        Nenhum detalhe de assinatura encontrado.
+                    </div>
+                )}
+            </TabsContent>
+
+          </ScrollArea>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

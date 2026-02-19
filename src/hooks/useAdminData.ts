@@ -127,3 +127,21 @@ export const useTrainerStudents = (trainerId: string | null) => {
     enabled: !!trainerId,
   });
 };
+
+export const useTrainerSubscriptionDetails = (trainerId: string | null) => {
+  return useQuery({
+    queryKey: ['admin-trainer-subscription-details', trainerId],
+    queryFn: async () => {
+      if (!trainerId) return null;
+      const { data, error } = await supabase
+        .from('trainer_subscriptions')
+        .select('*')
+        .eq('trainer_id', trainerId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!trainerId,
+  });
+};
