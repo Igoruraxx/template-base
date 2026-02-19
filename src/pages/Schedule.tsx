@@ -216,58 +216,66 @@ const Schedule = () => {
     const hasReminder = student?.needs_reminder && student?.phone;
 
     return (
-      <motion.div
+      <div
         key={session.id}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
         draggable={draggable}
-        onDragStart={draggable ? (e) => handleDragStart(e as any, session) : undefined}
-        className={cn(
-          'glass rounded-xl p-3 relative overflow-hidden',
-          draggable && 'cursor-grab active:cursor-grabbing',
-          isCompleted && 'opacity-70',
-          isCancelled && 'opacity-40'
-        )}
+        onDragStart={draggable ? (e) => {
+          e.stopPropagation();
+          handleDragStart(e, session);
+        } : undefined}
         onClick={() => setDetailSession(session)}
+        className={cn(
+          draggable && 'cursor-grab active:cursor-grabbing'
+        )}
       >
-        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
-          style={{ backgroundColor: student?.color || '#10b981' }} />
-        <div className="ml-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm">{student?.name || 'Aluno'}</span>
-              {isCompleted && <Check className="h-3.5 w-3.5 text-primary" />}
-              {hasReminder && (
-                <button onClick={(e) => {
-                  e.stopPropagation();
-                  openWhatsApp(student.phone, buildReminderMessage(student.name, session.scheduled_date, session.scheduled_time));
-                }} className="text-amber-400 hover:text-amber-300">
-                  <Bell className="h-3.5 w-3.5" />
-                </button>
-              )}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            'glass rounded-xl p-3 relative overflow-hidden',
+            isCompleted && 'opacity-70',
+            isCancelled && 'opacity-40'
+          )}
+        >
+          <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+            style={{ backgroundColor: student?.color || '#10b981' }} />
+          <div className="ml-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm">{student?.name || 'Aluno'}</span>
+                {isCompleted && <Check className="h-3.5 w-3.5 text-primary" />}
+                {hasReminder && (
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    openWhatsApp(student.phone, buildReminderMessage(student.name, session.scheduled_date, session.scheduled_time));
+                  }} className="text-amber-400 hover:text-amber-300">
+                    <Bell className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {student?.phone && (
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    openWhatsApp(student.phone, `Olá ${student.name}, tudo bem?`);
+                  }} className="text-muted-foreground hover:text-primary transition-colors">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <span className="text-xs text-muted-foreground">{session.scheduled_time?.slice(0, 5)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {student?.phone && (
-                <button onClick={(e) => {
-                  e.stopPropagation();
-                  openWhatsApp(student.phone, `Olá ${student.name}, tudo bem?`);
-                }} className="text-muted-foreground hover:text-primary transition-colors">
-                  <MessageCircle className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <span className="text-xs text-muted-foreground">{session.scheduled_time?.slice(0, 5)}</span>
-            </div>
+            {session.muscle_groups && session.muscle_groups.length > 0 && (
+              <div className="mt-1.5"><MuscleGroupBadges groups={session.muscle_groups} size="xs" /></div>
+            )}
+            {session.location && (
+              <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                <MapPin className="h-2.5 w-2.5" /> {session.location}
+              </div>
+            )}
           </div>
-          {session.muscle_groups && session.muscle_groups.length > 0 && (
-            <div className="mt-1.5"><MuscleGroupBadges groups={session.muscle_groups} size="xs" /></div>
-          )}
-          {session.location && (
-            <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-              <MapPin className="h-2.5 w-2.5" /> {session.location}
-            </div>
-          )}
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     );
   };
 
