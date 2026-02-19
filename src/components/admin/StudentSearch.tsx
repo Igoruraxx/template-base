@@ -56,7 +56,7 @@ export const StudentSearch = () => {
     switch (status) {
       case 'active': return <Badge className="bg-green-500">Ativo</Badge>;
       case 'inactive': return <Badge variant="destructive">Inativo</Badge>;
-      case 'payment_pending': return <Badge variant="warning" className="text-yellow-800 bg-yellow-100">Pagamento Pendente</Badge>;
+      case 'payment_pending': return <Badge className="text-yellow-800 bg-yellow-100 border-yellow-300">Pagamento Pendente</Badge>;
       default: return <Badge variant="outline">{status || 'Sem Status'}</Badge>;
     }
   };
