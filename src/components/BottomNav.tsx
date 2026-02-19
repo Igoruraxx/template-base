@@ -12,11 +12,11 @@ export const BottomNav = () => {
   if (loading || !user) return null;
 
   const navItems = [
-    { icon: Calendar, label: 'Agenda', path: '/' },
     { icon: Users, label: 'Alunos', path: '/students' },
     { icon: Camera, label: 'Progresso', path: '/progress' },
-    { icon: User, label: 'Perfil', path: '/profile' },
+    { icon: Calendar, label: 'Agenda', path: '/' },
     { icon: DollarSign, label: 'Financeiro', path: '/finance' },
+    { icon: User, label: 'Perfil', path: '/profile' },
   ];
 
   // Adiciona item Admin se for admin de forma segura

@@ -20,6 +20,7 @@ import AdminBilling from "./pages/admin/AdminBilling";
 import AdminSupport from "./pages/admin/AdminSupport";
 import AdminStudents from "./pages/admin/AdminStudents";
 import NotFound from "./pages/NotFound";
+import Subscription from "./pages/Subscription";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/profile/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
             <Route path="/admin/billing" element={<AdminRoute><AdminBilling /></AdminRoute>} />
@@ -46,6 +48,7 @@ const App = () => (
             <Route path="/admin/support" element={<AdminRoute><AdminSupport /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

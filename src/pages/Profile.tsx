@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStudents, useUpdateStudent } from '@/hooks/useStudents';
 import { useTrainerSubscription } from '@/hooks/useTrainerSubscription';
@@ -21,6 +22,7 @@ import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { data: students } = useStudents();
   const updateStudent = useUpdateStudent();
@@ -184,11 +186,13 @@ const Profile = () => {
 
         {/* Subscription panel */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="glass rounded-2xl p-6 mt-4">
+          className="glass rounded-2xl p-6 mt-4 cursor-pointer hover:border-primary/50 transition-colors group"
+          onClick={() => navigate('/profile/subscription')}
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {isPremium ? <Crown className="h-5 w-5 text-yellow-400" /> : <Shield className="h-5 w-5 text-primary" />}
-              <h2 className="text-lg font-semibold">Meu Plano</h2>
+              <h2 className="text-lg font-semibold group-hover:text-primary transition-colors">Minha Assinatura</h2>
             </div>
             <Badge variant={isPremium ? 'default' : 'secondary'} className={isPremium ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : ''}>
               {isPremium ? 'Premium' : 'Gratuito'}
@@ -198,36 +202,14 @@ const Profile = () => {
           {isPendingPix && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-4">
               <Clock className="h-4 w-4 text-amber-400 shrink-0" />
-              <p className="text-xs text-amber-300">Pagamento PIX aguardando confirmação do admin.</p>
+              <p className="text-xs text-amber-300">Pagamento PIX em análise...</p>
             </div>
           )}
 
-          {isPremium ? (
-            <div className="text-center py-2">
-              <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-                <Crown className="h-4 w-4 text-yellow-400" />
-                <span>Alunos ativos ilimitados</span>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Alunos ativos</span>
-                <span className="font-semibold">{slotsUsed}/{slotsTotal}</span>
-              </div>
-              <Progress
-                value={(slotsUsed / (slotsTotal || 1)) * 100}
-                className={`h-2.5 ${slotsUsed >= slotsTotal ? '[&>div]:bg-destructive' : isNearLimit ? '[&>div]:bg-yellow-400' : '[&>div]:bg-primary'}`}
-              />
-            </div>
-          )}
-
-          {!isPremium && (
-            <Button onClick={() => setUpgradeModal(true)}
-              className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold mt-4">
-              <Crown className="h-4 w-4 mr-2" /> Fazer Upgrade
-            </Button>
-          )}
+          <div className="flex items-center justify-between text-sm mt-2">
+             <span className="text-muted-foreground">{isPremium ? 'Acesso ilimitado ativado' : `${slotsUsed} de ${slotsTotal} alunos utilizados`}</span>
+             <span className="font-semibold text-primary">Gerenciar &rarr;</span>
+          </div>
         </motion.div>
 
         {/* Tools */}
