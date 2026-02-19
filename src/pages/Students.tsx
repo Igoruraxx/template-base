@@ -184,13 +184,14 @@ const Students = () => {
       phone: form.phone || null, email: form.email || null, goal: form.goal || null,
       plan_type: form.plan_type,
       plan_value: form.plan_value ? parseFloat(form.plan_value) : null,
-      sessions_per_week: parseInt(form.sessions_per_week) || 3,
+      sessions_per_week: form.is_consulting ? null : (parseInt(form.sessions_per_week) || 3),
       package_total_sessions: form.plan_type === 'package' && form.package_total_sessions
         ? parseInt(form.package_total_sessions) : null,
       color: form.color, status: form.status, is_consulting: form.is_consulting,
       needs_reminder: form.needs_reminder,
       payment_due_day: form.payment_due_day ? parseInt(form.payment_due_day) : null,
-      notes: form.notes || null, schedule_config: scheduleConfig,
+      notes: form.notes || null,
+      schedule_config: form.is_consulting ? null : scheduleConfig,
     };
 
     try {
@@ -427,14 +428,14 @@ const Students = () => {
                     )}
                   </div>
 
-                  {student.plan_type && (
+                    {student.plan_type && (
                     <div className="flex items-center gap-3 mt-3 ml-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <CreditCard className="h-3 w-3" />
                         {student.plan_type === 'monthly' ? 'Mensal' : 'Pacote'}
                         {student.plan_value && ` • R$ ${Number(student.plan_value).toFixed(0)}`}
                       </span>
-                      {student.sessions_per_week && (
+                      {!student.is_consulting && student.sessions_per_week && (
                         <span>{student.sessions_per_week}x/sem</span>
                       )}
                       {student.plan_type === 'package' && student.package_total_sessions && (
