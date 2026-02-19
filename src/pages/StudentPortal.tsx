@@ -37,30 +37,15 @@ const StudentPortal = () => {
       const s = students[0];
       setStudent(s);
 
-      // Fetch sessions (public via the function context won't work for these, so we use anon key approach)
-      // For the portal we'll fetch data through separate security definer functions if needed
-      // For now we load what's available
-      const { data: sessData } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('student_id', s.id)
-        .order('scheduled_date', { ascending: false })
-        .limit(20);
-      setSessions(sessData || []);
-
-      const { data: photoData } = await supabase
-        .from('progress_photos')
-        .select('*')
-        .eq('student_id', s.id)
-        .order('taken_at', { ascending: false });
-      setPhotos(photoData || []);
-
-      const { data: bioData } = await supabase
-        .from('bioimpedance')
-        .select('*')
-        .eq('student_id', s.id)
-        .order('measured_at', { ascending: true });
-      setBioRecords(bioData || []);
+      // Fetch data via security definer RPCs (works without auth)
+      const [sessRes, photoRes, bioRes] = await Promise.all([
+        supabase.rpc('get_student_sessions', { _student_id: s.id }),
+        supabase.rpc('get_student_photos', { _student_id: s.id }),
+        supabase.rpc('get_student_bio', { _student_id: s.id }),
+      ]);
+      setSessions(sessRes.data || []);
+      setPhotos(photoRes.data || []);
+      setBioRecords(bioRes.data || []);
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
     } finally {
