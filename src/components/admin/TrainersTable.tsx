@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Search, Ban, CheckCircle, CreditCard } from 'lucide-react';
+import { Search, Ban, CheckCircle, CreditCard, Eye } from 'lucide-react';
+import { TrainerDetailsModal } from './TrainerDetailsModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +19,21 @@ interface TrainersTableProps {
 export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isConfirmingPix }: TrainersTableProps) => {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedTrainer, setSelectedTrainer] = useState<TrainerOverview | null>(null);
 
   const filtered = trainers.filter((t) => {
     const matchSearch =
       (t.full_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
       (t.email ?? '').toLowerCase().includes(search.toLowerCase());
     const matchPlan = planFilter === 'all' || t.plan === planFilter;
-    return matchSearch && matchPlan;
+    
+    let matchStatus = true;
+    if (statusFilter === 'active') matchStatus = t.sub_status === 'active';
+    if (statusFilter === 'blocked') matchStatus = t.sub_status === 'blocked';
+    if (statusFilter === 'pending') matchStatus = t.sub_status === 'pending_pix';
+
+    return matchSearch && matchPlan && matchStatus;
   });
 
   return (
@@ -40,13 +49,25 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
           />
         </div>
         <Select value={planFilter} onValueChange={setPlanFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Filtrar plano" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="all">Todos Planos</SelectItem>
             <SelectItem value="free">Gratuito</SelectItem>
             <SelectItem value="premium">Assinante</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectValue placeholder="Filtrar status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos Status</SelectItem>
+            <SelectItem value="active">Ativo</SelectItem>
+            <SelectItem value="blocked">Bloqueado</SelectItem>
+            <SelectItem value="pending">Pendente</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -134,12 +155,25 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                       Bloquear
                     </Button>
                   )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedTrainer(t)}
+                  >
+                    <Eye className="h-3.5 w-3.5 mr-1" />
+                    Detalhes
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      <TrainerDetailsModal 
+        trainer={selectedTrainer} 
+        isOpen={!!selectedTrainer} 
+        onClose={() => setSelectedTrainer(null)} 
+      />
     </div>
   );
 };

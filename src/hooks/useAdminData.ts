@@ -70,3 +70,20 @@ export const useAdminData = () => {
 
   return { trainersQuery, subscriptionsQuery, blockTrainer, confirmPix };
 };
+
+export const useTrainerStudents = (trainerId: string | null) => {
+  return useQuery({
+    queryKey: ['admin-trainer-students', trainerId],
+    queryFn: async () => {
+      if (!trainerId) return [];
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('trainer_id', trainerId)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!trainerId,
+  });
+};
