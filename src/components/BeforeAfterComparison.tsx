@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeftRight, Image } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { SignedImage } from '@/components/SignedImage';
+import { getSignedUrl } from '@/lib/storageUtils';
 
 interface Photo {
   id: string;
@@ -194,10 +196,11 @@ const PhotoCard = ({
     {photo ? (
       <div
         className="aspect-[3/4] rounded-xl overflow-hidden cursor-pointer border border-border/30"
-        onClick={() => onClick(photo.photo_url)}
+        onClick={async () => { const url = await getSignedUrl('progress-photos', photo.photo_url); onClick(url); }}
       >
-        <img
-          src={photo.photo_url}
+        <SignedImage
+          bucket="progress-photos"
+          storagePath={photo.photo_url}
           alt={label}
           className="w-full h-full object-cover"
         />

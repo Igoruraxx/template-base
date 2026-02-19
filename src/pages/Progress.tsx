@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStudents } from '@/hooks/useStudents';
 import { useProgressPhotos, useDeleteProgressPhoto } from '@/hooks/useProgressPhotos';
@@ -22,6 +22,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { BeforeAfterComparison } from '@/components/BeforeAfterComparison';
 import { AssessmentTab } from '@/components/AssessmentTab';
 import { generateBioimpedancePdf } from '@/lib/generateBioimpedancePdf';
+import { SignedImage } from '@/components/SignedImage';
+import { getSignedUrl } from '@/lib/storageUtils';
 
 const PHOTO_TYPES = [
   { value: 'front', label: 'Frente' },
@@ -188,8 +190,8 @@ const Progress = () => {
                   {photos.map(photo => (
                     <motion.div key={photo.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                       className="relative group rounded-xl overflow-hidden aspect-[3/4] cursor-pointer"
-                      onClick={() => setLightboxUrl(photo.photo_url)}>
-                      <img src={photo.photo_url} alt="" className="w-full h-full object-cover" />
+                      onClick={async () => { const url = await getSignedUrl('progress-photos', photo.photo_url); setLightboxUrl(url); }}>
+                      <SignedImage bucket="progress-photos" storagePath={photo.photo_url} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="absolute bottom-2 left-2 right-2">
                           <p className="text-white text-[10px]">
@@ -280,10 +282,10 @@ const Progress = () => {
                       {record.muscle_mass && <div><p className="text-lg font-bold">{Number(record.muscle_mass).toFixed(1)}</p><p className="text-[10px] text-muted-foreground">M. Muscular</p></div>}
                     </div>
                     {record.report_url && (
-                      <a href={record.report_url} target="_blank" rel="noopener noreferrer"
+                      <button onClick={async () => { const url = await getSignedUrl('bioimpedance-reports', record.report_url); window.open(url, '_blank'); }}
                         className="flex items-center gap-1 text-xs text-primary mt-2 hover:underline">
                         <FileText className="h-3 w-3" /> Ver laudo
-                      </a>
+                      </button>
                     )}
                   </motion.div>
                 ))}
