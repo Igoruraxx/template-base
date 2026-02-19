@@ -80,13 +80,13 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
+CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = _role
+    WHERE user_id = _user_id AND role::TEXT = _role
   )
 $$;
 
@@ -138,11 +138,11 @@ ON public.students FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
 DROP POLICY IF EXISTS "Trainers can update their own students" ON public.students;
 CREATE POLICY "Trainers can update their own students"
-ON public.students FOR UPDATE USING (auth.uid() = trainer_id);
+ON public.students FOR UPDATE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "Trainers can delete their own students" ON public.students;
 CREATE POLICY "Trainers can delete their own students"
-ON public.students FOR DELETE USING (auth.uid() = trainer_id);
+ON public.students FOR DELETE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 DROP TRIGGER IF EXISTS update_students_updated_at ON public.students;
 CREATE TRIGGER update_students_updated_at
@@ -182,11 +182,11 @@ ON public.sessions FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
 DROP POLICY IF EXISTS "Trainers can update their own sessions" ON public.sessions;
 CREATE POLICY "Trainers can update their own sessions"
-ON public.sessions FOR UPDATE USING (auth.uid() = trainer_id);
+ON public.sessions FOR UPDATE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "Trainers can delete their own sessions" ON public.sessions;
 CREATE POLICY "Trainers can delete their own sessions"
-ON public.sessions FOR DELETE USING (auth.uid() = trainer_id);
+ON public.sessions FOR DELETE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 DROP TRIGGER IF EXISTS update_sessions_updated_at ON public.sessions;
 CREATE TRIGGER update_sessions_updated_at
@@ -263,7 +263,7 @@ ON public.progress_photos FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
 DROP POLICY IF EXISTS "Trainers can delete photos" ON public.progress_photos;
 CREATE POLICY "Trainers can delete photos"
-ON public.progress_photos FOR DELETE USING (auth.uid() = trainer_id);
+ON public.progress_photos FOR DELETE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 CREATE INDEX IF NOT EXISTS idx_progress_photos_student ON public.progress_photos(student_id);
 
@@ -299,11 +299,11 @@ ON public.bioimpedance FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
 DROP POLICY IF EXISTS "Trainers can update bioimpedance" ON public.bioimpedance;
 CREATE POLICY "Trainers can update bioimpedance"
-ON public.bioimpedance FOR UPDATE USING (auth.uid() = trainer_id);
+ON public.bioimpedance FOR UPDATE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "Trainers can delete bioimpedance" ON public.bioimpedance;
 CREATE POLICY "Trainers can delete bioimpedance"
-ON public.bioimpedance FOR DELETE USING (auth.uid() = trainer_id);
+ON public.bioimpedance FOR DELETE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 CREATE INDEX IF NOT EXISTS idx_bioimpedance_student ON public.bioimpedance(student_id);
 
@@ -336,11 +336,11 @@ ON public.payments FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
 DROP POLICY IF EXISTS "Trainers can update payments" ON public.payments;
 CREATE POLICY "Trainers can update payments"
-ON public.payments FOR UPDATE USING (auth.uid() = trainer_id);
+ON public.payments FOR UPDATE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "Trainers can delete payments" ON public.payments;
 CREATE POLICY "Trainers can delete payments"
-ON public.payments FOR DELETE USING (auth.uid() = trainer_id);
+ON public.payments FOR DELETE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 CREATE INDEX IF NOT EXISTS idx_payments_student ON public.payments(student_id);
 CREATE INDEX IF NOT EXISTS idx_payments_month ON public.payments(reference_month);
@@ -401,11 +401,11 @@ ON public.assessments FOR INSERT WITH CHECK (auth.uid() = trainer_id);
 
 DROP POLICY IF EXISTS "Trainers can update assessments" ON public.assessments;
 CREATE POLICY "Trainers can update assessments"
-ON public.assessments FOR UPDATE USING (auth.uid() = trainer_id);
+ON public.assessments FOR UPDATE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 DROP POLICY IF EXISTS "Trainers can delete assessments" ON public.assessments;
 CREATE POLICY "Trainers can delete assessments"
-ON public.assessments FOR DELETE USING (auth.uid() = trainer_id);
+ON public.assessments FOR DELETE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
 
 -- ==================== TRAINER SUBSCRIPTIONS ====================
 

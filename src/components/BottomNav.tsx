@@ -7,10 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 export const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile } = useAuth(); // Assumindo que useAuth retorna profile com role
-
-  // Debug temporário
-  console.log('BottomNav Debug:', { email: user?.email, role: profile?.role });
+  const { user, isAdmin, loading } = useAuth();
+  
+  if (loading || !user) return null;
 
   const navItems = [
     { icon: Calendar, label: 'Agenda', path: '/' },
@@ -20,8 +19,8 @@ export const BottomNav = () => {
     { icon: DollarSign, label: 'Financeiro', path: '/finance' },
   ];
 
-  // Adiciona item Admin se for admin
-  if (profile?.role === 'admin') {
+  // Adiciona item Admin se for admin de forma segura
+  if (isAdmin) {
     navItems.push({ icon: ShieldCheck, label: 'Admin', path: '/admin' });
   }
 

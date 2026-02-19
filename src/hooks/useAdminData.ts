@@ -68,7 +68,47 @@ export const useAdminData = () => {
     },
   });
 
-  return { trainersQuery, subscriptionsQuery, blockTrainer, confirmPix };
+  const deleteTrainer = useMutation({
+    mutationFn: async (trainerId: string) => {
+      // Direct deletion from auth.users requires service_role or a custom RPC
+      // Since we don't have a service_role client in frontend, we'll use an RPC if available
+      // or just delete from profiles/subscriptions which are linked via CASCADE to other tables
+      // But for complete removal, we usually need a function.
+      const { error } = await supabase.rpc('delete_trainer_complete', { t_id: trainerId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-trainers'] });
+    },
+  });
+
+  const recentTrainersQuery = useQuery({
+    queryKey: ['admin-recent-trainers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const recentStudentsQuery = useQuery({
+    queryKey: ['admin-recent-students'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*, profiles(full_name)')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  return { trainersQuery, subscriptionsQuery, blockTrainer, confirmPix, recentTrainersQuery, recentStudentsQuery };
 };
 
 export const useTrainerStudents = (trainerId: string | null) => {

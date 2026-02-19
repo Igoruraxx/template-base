@@ -10,6 +10,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Users, Calendar, DollarSign, TrendingUp, Dumbbell, AlertTriangle, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTrainerSubscription } from '@/hooks/useTrainerSubscription';
+import { AIChatAgent } from '@/components/AIChatAgent';
 
 const Index = () => {
   const { user } = useAuth();
@@ -118,8 +119,10 @@ const Index = () => {
           )}
         </motion.div>
       </div>
+      <AIChatAgent />
     </AppLayout>
   );
 };
+
 
 export default Index;

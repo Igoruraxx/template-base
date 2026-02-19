@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Ban, CheckCircle, CreditCard, Eye } from 'lucide-react';
+import { Search, Ban, CheckCircle, CreditCard, Eye, Trash2 } from 'lucide-react';
 import { TrainerDetailsModal } from './TrainerDetailsModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,11 @@ interface TrainersTableProps {
   isBlocking: boolean;
   onConfirmPix?: (trainerId: string) => void;
   isConfirmingPix?: boolean;
+  onDelete?: (trainerId: string) => void;
+  isDeleting?: boolean;
 }
 
-export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isConfirmingPix }: TrainersTableProps) => {
+export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isConfirmingPix, onDelete, isDeleting }: TrainersTableProps) => {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -163,6 +165,17 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                     <Eye className="h-3.5 w-3.5 mr-1" />
                     Detalhes
                   </Button>
+                  {onDelete && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => onDelete(t.user_id)}
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

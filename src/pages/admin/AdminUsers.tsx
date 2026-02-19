@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 const AdminUsers = () => {
-  const { trainersQuery, blockTrainer, confirmPix } = useAdminData();
+  const { trainersQuery, blockTrainer, confirmPix, deleteTrainer } = useAdminData();
   const trainers = trainersQuery.data ?? [];
 
   const handleBlock = (trainerId: string, blocked: boolean) => {
@@ -25,6 +25,15 @@ const AdminUsers = () => {
     });
   };
 
+  const handleDelete = (trainerId: string) => {
+    if (!confirm('TEM CERTEZA? Esta ação removerá o treinador e TODOS os seus alunos permanentemente.')) return;
+    
+    deleteTrainer.mutate(trainerId, {
+      onSuccess: () => toast.success('Treinador removido com sucesso'),
+      onError: (err: any) => toast.error('Erro ao remover: ' + err.message),
+    });
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -36,8 +45,15 @@ const AdminUsers = () => {
         {trainersQuery.isLoading ? (
           <Skeleton className="h-64 rounded-lg" />
         ) : (
-          <TrainersTable trainers={trainers} onBlock={handleBlock} isBlocking={blockTrainer.isPending}
-            onConfirmPix={handleConfirmPix} isConfirmingPix={confirmPix.isPending} />
+          <TrainersTable 
+            trainers={trainers} 
+            onBlock={handleBlock} 
+            isBlocking={blockTrainer.isPending}
+            onConfirmPix={handleConfirmPix} 
+            isConfirmingPix={confirmPix.isPending}
+            onDelete={handleDelete}
+            isDeleting={deleteTrainer.isPending}
+          />
         )}
       </div>
     </AdminLayout>
