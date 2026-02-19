@@ -542,6 +542,20 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_student_bio: {
+        Args: { _student_id: string }
+        Returns: {
+          bmr: number
+          body_fat_pct: number
+          body_water_pct: number
+          bone_mass: number
+          id: string
+          measured_at: string
+          muscle_mass: number
+          visceral_fat: number
+          weight: number
+        }[]
+      }
       get_student_by_code: {
         Args: { _code: string }
         Returns: {
@@ -574,6 +588,28 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_student_photos: {
+        Args: { _student_id: string }
+        Returns: {
+          id: string
+          notes: string
+          photo_type: string
+          photo_url: string
+          taken_at: string
+        }[]
+      }
+      get_student_sessions: {
+        Args: { _student_id: string }
+        Returns: {
+          duration_minutes: number
+          id: string
+          muscle_groups: string[]
+          notes: string
+          scheduled_date: string
+          scheduled_time: string
+          status: string
+        }[]
       }
       has_role: {
         Args: {

@@ -158,6 +158,7 @@ const Schedule = () => {
 
   // Drag and drop handlers
   const handleDragStart = useCallback((e: React.DragEvent, session: any) => {
+    e.stopPropagation();
     e.dataTransfer.setData('sessionId', session.id);
     e.dataTransfer.effectAllowed = 'move';
   }, []);
@@ -374,7 +375,13 @@ const Schedule = () => {
                   <span className="text-[10px] text-muted-foreground w-10 pt-2 shrink-0 text-right">{timeStr}</span>
                   <div className="flex-1 border-t border-border/30 pt-1 pb-1">
                     {hourSessions.length > 0 ? (
-                      <div className="space-y-1">{hourSessions.map((s: any) => renderSessionCard(s, true))}</div>
+                      <div className="flex flex-wrap gap-1">
+                        {hourSessions.map((s: any) => (
+                          <div key={s.id} className={hourSessions.length > 1 ? 'flex-1 min-w-0' : 'w-full'}>
+                            {renderSessionCard(s, true)}
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <button onClick={() => openNew(timeStr)}
                         className="w-full h-full min-h-[40px] rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-center">
