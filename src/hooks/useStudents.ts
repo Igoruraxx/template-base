@@ -106,9 +106,20 @@ export const useDeleteStudents = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (ids: string[]) => {
+      // Delete all sessions for these students first
+      const { error: sessError } = await supabase
+        .from('sessions')
+        .delete()
+        .in('student_id', ids);
+      if (sessError) throw sessError;
+
+      // Then delete the students
       const { error } = await supabase.from('students').delete().in('id', ids);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['students'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['students'] });
+      qc.invalidateQueries({ queryKey: ['sessions'] });
+    },
   });
 };
