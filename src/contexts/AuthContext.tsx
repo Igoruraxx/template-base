@@ -38,7 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           _user_id: userId,
           _role: 'admin'
         });
-        setIsAdmin(!!adminCheck);
+
+        // Robust but clean check
+        setIsAdmin(!!adminCheck || profileData?.role === 'admin');
       } catch (error) {
         console.error('Error fetching profile or role:', error);
       } finally {
