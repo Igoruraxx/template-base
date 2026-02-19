@@ -12,9 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { AssessmentTab } from '@/components/AssessmentTab';
 import {
   Users, Plus, Search, CreditCard,
   MoreVertical, Edit, Trash2, MessageCircle, Bell, UserX, CalendarX2,
@@ -435,30 +433,11 @@ const Students = () => {
               <DialogDescription>Preencha os dados do aluno</DialogDescription>
             </DialogHeader>
 
-            {editingStudent ? (
-              <Tabs defaultValue="dados" className="mt-2">
-                <TabsList className="w-full bg-muted rounded-xl p-1">
-                  <TabsTrigger value="dados" className="flex-1 rounded-lg text-xs">Dados</TabsTrigger>
-                  <TabsTrigger value="relatorio" className="flex-1 rounded-lg text-xs">Relatório</TabsTrigger>
-                </TabsList>
-                <TabsContent value="dados">
-                  <StudentForm form={form} setForm={setForm} scheduleConfig={scheduleConfig}
-                    handleSessionsPerWeekChange={handleSessionsPerWeekChange}
-                    updateScheduleEntry={updateScheduleEntry} setAllTimesEqual={setAllTimesEqual}
-                    handleSave={handleSave} isEditing={true}
-                    isPending={createStudent.isPending || updateStudent.isPending} />
-                </TabsContent>
-                <TabsContent value="relatorio">
-                  <AssessmentTab studentId={editingStudent.id} studentName={editingStudent.name} />
-                </TabsContent>
-              </Tabs>
-            ) : (
-              <StudentForm form={form} setForm={setForm} scheduleConfig={scheduleConfig}
-                handleSessionsPerWeekChange={handleSessionsPerWeekChange}
-                updateScheduleEntry={updateScheduleEntry} setAllTimesEqual={setAllTimesEqual}
-                handleSave={handleSave} isEditing={false}
-                isPending={createStudent.isPending || updateStudent.isPending} />
-            )}
+            <StudentForm form={form} setForm={setForm} scheduleConfig={scheduleConfig}
+              handleSessionsPerWeekChange={handleSessionsPerWeekChange}
+              updateScheduleEntry={updateScheduleEntry} setAllTimesEqual={setAllTimesEqual}
+              handleSave={handleSave} isEditing={!!editingStudent}
+              isPending={createStudent.isPending || updateStudent.isPending} />
           </DialogContent>
         </Dialog>
       </div>
