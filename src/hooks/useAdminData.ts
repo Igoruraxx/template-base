@@ -108,7 +108,7 @@ export const useAdminData = () => {
     },
   });
 
-  return { trainersQuery, subscriptionsQuery, blockTrainer, confirmPix, recentTrainersQuery, recentStudentsQuery };
+  return { trainersQuery, subscriptionsQuery, blockTrainer, confirmPix, deleteTrainer, recentTrainersQuery, recentStudentsQuery };
 };
 
 export const useTrainerStudents = (trainerId: string | null) => {
