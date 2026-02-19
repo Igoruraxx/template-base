@@ -101,3 +101,14 @@ export const useDeleteFutureSessions = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   });
 };
+
+export const useDeleteSessions = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('sessions').delete().in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+  });
+};

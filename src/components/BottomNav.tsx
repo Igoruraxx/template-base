@@ -1,25 +1,35 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Users, Calendar, Camera, User, DollarSign } from 'lucide-react';
+import { Users, Calendar, Camera, User, DollarSign, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-
-const navItems = [
-  { icon: Calendar, label: 'Agenda', path: '/' },
-  { icon: Users, label: 'Alunos', path: '/students' },
-  { icon: Camera, label: 'Progresso', path: '/progress' },
-  { icon: User, label: 'Perfil', path: '/profile' },
-  { icon: DollarSign, label: 'Financeiro', path: '/finance' },
-];
+import { useAuth } from '@/contexts/AuthContext';
 
 export const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, profile } = useAuth(); // Assumindo que useAuth retorna profile com role
+
+  // Debug temporário
+  console.log('BottomNav Debug:', { email: user?.email, role: profile?.role });
+
+  const navItems = [
+    { icon: Calendar, label: 'Agenda', path: '/' },
+    { icon: Users, label: 'Alunos', path: '/students' },
+    { icon: Camera, label: 'Progresso', path: '/progress' },
+    { icon: User, label: 'Perfil', path: '/profile' },
+    { icon: DollarSign, label: 'Financeiro', path: '/finance' },
+  ];
+
+  // Adiciona item Admin se for admin
+  if (profile?.role === 'admin') {
+    navItems.push({ icon: ShieldCheck, label: 'Admin', path: '/admin' });
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border/50 pb-safe">
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || (item.path === '/admin' && location.pathname.startsWith('/admin'));
           return (
             <button
               key={item.path}
@@ -45,3 +55,4 @@ export const BottomNav = () => {
     </nav>
   );
 };
+

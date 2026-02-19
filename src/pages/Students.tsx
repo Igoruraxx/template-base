@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addDays, format, startOfWeek, getDay, nextDay } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { useStudents, useCreateStudent, useUpdateStudent, useDeleteStudent, useInactivateStudent } from '@/hooks/useStudents';
+import { useStudents, useCreateStudent, useUpdateStudent, useDeleteStudent, useInactivateStudent, useDeleteStudents } from '@/hooks/useStudents';
 import { useDeleteFutureSessions, useCreateSession } from '@/hooks/useSessions';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import {
   Users, Plus, Search, CreditCard,
   MoreVertical, Edit, Trash2, MessageCircle, Bell, UserX, CalendarX2,
-  CalendarPlus, Copy
+  CalendarPlus, Copy, CheckSquare, X
 } from 'lucide-react';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { STUDENT_COLORS } from '@/lib/constants';
@@ -60,6 +61,7 @@ const Students = () => {
   const createStudent = useCreateStudent();
   const updateStudent = useUpdateStudent();
   const deleteStudent = useDeleteStudent();
+  const deleteStudents = useDeleteStudents(); // Bulk delete hook
   const inactivateStudent = useInactivateStudent();
   const deleteFutureSessions = useDeleteFutureSessions();
   const createSession = useCreateSession();
@@ -69,8 +71,14 @@ const Students = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: 'inactivate' | 'deleteSessions' | 'generateSessions'; student: any } | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [limitModalOpen, setLimitModalOpen] = useState(false);
+  
+  // Bulk selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const { canAddActiveStudent, isPendingPix, slotsUsed, slotsTotal, isPremium, isNearLimit } = useTrainerSubscription();
 
   const [form, setForm] = useState({
@@ -97,6 +105,10 @@ const Students = () => {
   };
 
   const openEdit = (student: any) => {
+    if (selectionMode) {
+      toggleSelection(student.id);
+      return;
+    }
     setForm({
       name: student.name, phone: student.phone || '', email: student.email || '',
       goal: student.goal || '', plan_type: student.plan_type || 'monthly',
@@ -119,6 +131,28 @@ const Students = () => {
     }
     setEditingStudent(student);
     setDialogOpen(true);
+  };
+
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await deleteStudents.mutateAsync(Array.from(selectedIds));
+      toast({ title: `${selectedIds.size} alunos removidos!` });
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+    } catch (err: any) {
+      toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
+    }
   };
 
   const handleSessionsPerWeekChange = (val: string) => {
@@ -269,7 +303,7 @@ const Students = () => {
 
   return (
     <AppLayout>
-      <div className="px-4 pt-12 pb-6 max-w-lg mx-auto">
+      <div className="px-4 pt-12 pb-24 max-w-lg mx-auto">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Alunos</h1>
@@ -277,10 +311,23 @@ const Students = () => {
               {isPremium ? `${slotsUsed} ativos • Ilimitado` : `${slotsUsed}/${slotsTotal} ativos`}
             </p>
           </div>
-          <Button onClick={() => { resetForm(); setDialogOpen(true); }} size="icon"
-            className="rounded-xl gradient-primary shadow-lg shadow-primary/25 h-10 w-10">
-            <Plus className="h-5 w-5" />
-          </Button>
+          <div className="flex gap-2">
+             <Button 
+                variant={selectionMode ? "secondary" : "outline"} 
+                size="icon" 
+                onClick={() => {
+                  setSelectionMode(!selectionMode);
+                  setSelectedIds(new Set());
+                }}
+                className="rounded-xl h-10 w-10"
+              >
+                {selectionMode ? <X className="h-5 w-5" /> : <CheckSquare className="h-5 w-5" />}
+              </Button>
+            <Button onClick={() => { resetForm(); setDialogOpen(true); }} size="icon"
+              className="rounded-xl gradient-primary shadow-lg shadow-primary/25 h-10 w-10">
+              <Plus className="h-5 w-5" />
+            </Button>
+          </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="relative mb-4">
@@ -293,13 +340,27 @@ const Students = () => {
           <AnimatePresence>
             {filtered.map((student, i) => {
               const st = STATUS_LABELS[student.status || 'active'];
+              const isSelected = selectedIds.has(student.id);
+
               return (
                 <motion.div key={student.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -100 }} transition={{ delay: i * 0.05 }}
-                  className="glass rounded-2xl p-4 relative overflow-hidden cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all"
+                  className={cn(
+                    "glass rounded-2xl p-4 relative overflow-hidden cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all",
+                    isSelected && "ring-2 ring-primary bg-primary/5"
+                  )}
                   onClick={() => openEdit(student)}>
                   <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ backgroundColor: student.color || '#10b981' }} />
+                  
                   <div className="flex items-center gap-3 ml-2">
+                    {selectionMode && (
+                        <Checkbox 
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelection(student.id)}
+                          className="mr-1"
+                        />
+                    )}
+
                     <div className="h-11 w-11 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
                       style={{ backgroundColor: student.color || '#10b981' }}>
                       {student.name.slice(0, 2).toUpperCase()}
@@ -320,48 +381,50 @@ const Students = () => {
                       </div>
                     </div>
 
-                    {/* Quick action buttons */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      {student.phone && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
-                          onClick={(e) => { e.stopPropagation(); openWhatsApp(student.phone!, `Olá ${student.name}, tudo bem?`); }}>
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(student); }}>
-                            <Edit className="h-4 w-4 mr-2" /> Editar
-                          </DropdownMenuItem>
-                          {student.phone && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openWhatsApp(student.phone!, `Olá ${student.name}, tudo bem?`); }}>
-                              <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                    {/* Quick action buttons (only if not selecting) */}
+                    {!selectionMode && (
+                        <div className="flex items-center gap-1 shrink-0">
+                        {student.phone && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            onClick={(e) => { e.stopPropagation(); openWhatsApp(student.phone!, `Olá ${student.name}, tudo bem?`); }}>
+                            <MessageCircle className="h-4 w-4" />
+                            </Button>
+                        )}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                                <MoreVertical className="h-4 w-4" />
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(student); }}>
+                                <Edit className="h-4 w-4 mr-2" /> Editar
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'generateSessions', student }); }}>
-                            <CalendarPlus className="h-4 w-4 mr-2" /> Gerar sessões (4 semanas)
-                          </DropdownMenuItem>
-                          {student.status === 'active' && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'inactivate', student }); }}>
-                              <UserX className="h-4 w-4 mr-2" /> Inativar
+                            {student.phone && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openWhatsApp(student.phone!, `Olá ${student.name}, tudo bem?`); }}>
+                                <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'generateSessions', student }); }}>
+                                <CalendarPlus className="h-4 w-4 mr-2" /> Gerar sessões (4 semanas)
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'deleteSessions', student }); }}>
-                            <CalendarX2 className="h-4 w-4 mr-2" /> Excluir sessões futuras
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(student.id); }}>
-                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                            {student.status === 'active' && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'inactivate', student }); }}>
+                                <UserX className="h-4 w-4 mr-2" /> Inativar
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'deleteSessions', student }); }}>
+                                <CalendarX2 className="h-4 w-4 mr-2" /> Excluir sessões futuras
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(student.id); }}>
+                                <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                            </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        </div>
+                    )}
                   </div>
 
                   {student.plan_type && (
@@ -395,6 +458,30 @@ const Students = () => {
           )}
         </div>
 
+        {/* Selection Fab */}
+        <AnimatePresence>
+          {selectionMode && selectedIds.size > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-24 left-4 right-4 z-50"
+            >
+              <div className="glass p-4 rounded-2xl shadow-xl border border-destructive/20 flex items-center justify-between">
+                <span className="font-semibold">{selectedIds.size} selecionado(s)</span>
+                <div className="flex gap-2">
+                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                    Cancelar
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => setConfirmBulkDelete(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Confirm Dialog */}
         <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
           <AlertDialogContent className="glass rounded-2xl">
@@ -417,6 +504,24 @@ const Students = () => {
               <AlertDialogAction onClick={handleConfirmAction} disabled={generating}
                 className="rounded-xl gradient-primary text-primary-foreground">
                 {generating ? 'Gerando...' : 'Confirmar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+         {/* Bulk Delete Confirm Dialog */}
+         <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+          <AlertDialogContent className="glass rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir {selectedIds.size} alunos?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. Todos os dados dos alunos selecionados serão removidos permanentemente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDelete} className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Confirmar Exclusão
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

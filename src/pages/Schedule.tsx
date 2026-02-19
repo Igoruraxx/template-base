@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format, addDays, startOfWeek, isToday, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSessions, useCreateSession, useUpdateSession, useDeleteSession } from '@/hooks/useSessions';
+import { useSessions, useCreateSession, useUpdateSession, useDeleteSession, useDeleteSessions } from '@/hooks/useSessions';
 import { useStudents } from '@/hooks/useStudents';
 import { AppLayout } from '@/components/AppLayout';
 import { MuscleGroupSelector, MuscleGroupBadges } from '@/components/MuscleGroupSelector';
@@ -13,10 +13,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   Calendar, Plus, ChevronLeft, ChevronRight, Clock, MapPin,
-  Check, Edit, Trash2, Bell, DollarSign, MessageCircle
+  Check, Edit, Trash2, Bell, DollarSign, MessageCircle, CheckSquare, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { openWhatsApp, buildReminderMessage } from '@/lib/whatsapp';
@@ -35,6 +40,11 @@ const Schedule = () => {
   const [editingSession, setEditingSession] = useState<any>(null);
   const [dragOverHour, setDragOverHour] = useState<number | null>(null);
 
+  // Bulk selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
   const dateStr = format(currentDate, 'yyyy-MM-dd');
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -43,6 +53,7 @@ const Schedule = () => {
   const createSession = useCreateSession();
   const updateSession = useUpdateSession();
   const deleteSession = useDeleteSession();
+  const deleteSessions = useDeleteSessions();
 
   const startStr = format(weekStart, 'yyyy-MM-dd');
   const endStr = format(addDays(weekStart, 6), 'yyyy-MM-dd');
@@ -89,6 +100,10 @@ const Schedule = () => {
   };
 
   const openEdit = (session: any) => {
+    if (selectionMode) {
+      toggleSelection(session.id);
+      return;
+    }
     setForm({
       student_id: session.student_id,
       scheduled_date: session.scheduled_date,
@@ -100,6 +115,28 @@ const Schedule = () => {
     });
     setEditingSession(session);
     setDialogOpen(true);
+  };
+
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await deleteSessions.mutateAsync(Array.from(selectedIds));
+      toast({ title: `${selectedIds.size} sessões removidas!` });
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+      setConfirmBulkDelete(false);
+    } catch (err: any) {
+      toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
+    }
   };
 
   const handleSave = async () => {
@@ -209,22 +246,35 @@ const Schedule = () => {
     const isCompleted = session.status === 'completed';
     const isCancelled = session.status === 'cancelled';
     const hasReminder = student?.needs_reminder && student?.phone;
+    const isSelected = selectedIds.has(session.id);
+    const canDrag = draggable && !selectionMode;
 
     return (
       <div
         key={session.id}
-        draggable={draggable}
-        onDragStart={draggable ? (e: React.DragEvent<HTMLDivElement>) => {
+        draggable={canDrag}
+        onDragStart={(e) => {
+          if (!canDrag) {
+            e.preventDefault();
+            return;
+          }
           e.stopPropagation();
           e.dataTransfer.setData('text/plain', session.id);
           e.dataTransfer.effectAllowed = 'move';
-        } : undefined}
-        onClick={() => setDetailSession(session)}
+        }}
+        onClick={() => {
+            if (selectionMode) {
+                toggleSelection(session.id);
+            } else {
+                setDetailSession(session);
+            }
+        }}
         className={cn(
-          'glass rounded-xl p-3 relative overflow-hidden animate-fade-in',
-          draggable && 'cursor-grab active:cursor-grabbing',
+          'glass rounded-xl p-3 relative overflow-hidden animate-fade-in transition-all',
+          canDrag && 'cursor-grab active:cursor-grabbing',
           isCompleted && 'opacity-70',
-          isCancelled && 'opacity-40'
+          isCancelled && 'opacity-40',
+          isSelected && 'ring-2 ring-primary bg-primary/5'
         )}
       >
         <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
@@ -232,9 +282,16 @@ const Schedule = () => {
         <div className="ml-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              {selectionMode && (
+                <Checkbox 
+                  checked={isSelected}
+                  onCheckedChange={() => toggleSelection(session.id)}
+                  className="mr-1 h-3.5 w-3.5"
+                />
+              )}
               <span className="font-semibold text-sm">{student?.name || 'Aluno'}</span>
               {isCompleted && <Check className="h-3.5 w-3.5 text-primary" />}
-              {hasReminder && (
+              {hasReminder && !selectionMode && (
                 <button onClick={(e) => {
                   e.stopPropagation();
                   openWhatsApp(student.phone, buildReminderMessage(student.name, session.scheduled_date, session.scheduled_time));
@@ -243,17 +300,19 @@ const Schedule = () => {
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {student?.phone && (
-                <button onClick={(e) => {
-                  e.stopPropagation();
-                  openWhatsApp(student.phone, `Olá ${student.name}, tudo bem?`);
-                }} className="text-muted-foreground hover:text-primary transition-colors">
-                  <MessageCircle className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <span className="text-xs text-muted-foreground">{session.scheduled_time?.slice(0, 5)}</span>
-            </div>
+            {!selectionMode && (
+                <div className="flex items-center gap-2">
+                {student?.phone && (
+                    <button onClick={(e) => {
+                    e.stopPropagation();
+                    openWhatsApp(student.phone, `Olá ${student.name}, tudo bem?`);
+                    }} className="text-muted-foreground hover:text-primary transition-colors">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    </button>
+                )}
+                <span className="text-xs text-muted-foreground">{session.scheduled_time?.slice(0, 5)}</span>
+                </div>
+            )}
           </div>
           {session.muscle_groups && session.muscle_groups.length > 0 && (
             <div className="mt-1.5"><MuscleGroupBadges groups={session.muscle_groups} size="xs" /></div>
@@ -270,14 +329,27 @@ const Schedule = () => {
 
   return (
     <AppLayout>
-      <div className="px-4 pt-12 pb-6 max-w-lg mx-auto">
+      <div className="px-4 pt-12 pb-24 max-w-lg mx-auto">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold tracking-tight">Agenda</h1>
-          <Button onClick={() => openNew()} size="icon"
-            className="rounded-xl gradient-primary shadow-lg shadow-primary/25 h-10 w-10">
-            <Plus className="h-5 w-5" />
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+                variant={selectionMode ? "secondary" : "outline"} 
+                size="icon" 
+                onClick={() => {
+                  setSelectionMode(!selectionMode);
+                  setSelectedIds(new Set());
+                }}
+                className="rounded-xl h-10 w-10"
+              >
+                {selectionMode ? <X className="h-5 w-5" /> : <CheckSquare className="h-5 w-5" />}
+              </Button>
+            <Button onClick={() => openNew()} size="icon"
+                className="rounded-xl gradient-primary shadow-lg shadow-primary/25 h-10 w-10">
+                <Plus className="h-5 w-5" />
+            </Button>
+          </div>
         </motion.div>
 
         {/* Alerts */}
@@ -430,6 +502,30 @@ const Schedule = () => {
           </div>
         )}
 
+        {/* Selection Fab */}
+        <AnimatePresence>
+          {selectionMode && selectedIds.size > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-24 left-4 right-4 z-50"
+            >
+              <div className="glass p-4 rounded-2xl shadow-xl border border-destructive/20 flex items-center justify-between">
+                <span className="font-semibold">{selectedIds.size} selecionado(s)</span>
+                <div className="flex gap-2">
+                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                    Cancelar
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => setConfirmBulkDelete(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Session Detail Dialog */}
         <Dialog open={!!detailSession} onOpenChange={(open) => !open && setDetailSession(null)}>
           <DialogContent className="glass max-w-md rounded-2xl">
@@ -494,6 +590,24 @@ const Schedule = () => {
             )}
           </DialogContent>
         </Dialog>
+
+         {/* Bulk Delete Confirm Dialog */}
+         <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+          <AlertDialogContent className="glass rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir {selectedIds.size} sessões?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDelete} className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Confirmar Exclusão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* New/Edit Session Dialog */}
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
