@@ -1,90 +1,47 @@
 
-# Migração para Supabase Externo
+## Varredura Completa — Correção de Todos os Erros
 
-Este plano cobre todas as mudanças necessárias para migrar o projeto do Lovable Cloud para um projeto Supabase externo, com controle total sobre o banco de dados, mantendo o app funcionando aqui no Lovable Editor.
+### Diagnóstico dos Erros de Build
 
----
+Os 3 erros de build são do mesmo tipo: no TypeScript/Deno, o parâmetro `error` em um bloco `catch` tem tipo `unknown` por padrão. Acessar `error.message` diretamente causa erro de compilação porque `unknown` não garante que o objeto tem a propriedade `.message`.
 
-## O que precisa ser feito
+A correção padrão é usar um type guard:
+```typescript
+// ANTES (erro TS18046)
+return new Response(JSON.stringify({ error: error.message }), { ... });
 
-### 1. Corrigir os dois erros de build (imediato)
-
-**Erro 1 — Edge Functions com importação incorreta**
-
-4 funções usam `npm:@supabase/supabase-js@2.57.2` em vez de `https://esm.sh/@supabase/supabase-js@2`, que é o formato correto para Deno/Edge Functions:
-
-- `check-subscription/index.ts`
-- `create-checkout/index.ts`
-- `student-signed-urls/index.ts`
-- `extract-bioimpedance/index.ts`
-
-A correção é simples: trocar o import em todas elas para:
-```ts
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// DEPOIS (correto)
+const msg = error instanceof Error ? error.message : String(error);
+return new Response(JSON.stringify({ error: msg }), { ... });
 ```
 
-**Erro 2 — Badge com variant inválido**
+### Arquivos a Corrigir
 
-Em `src/components/admin/StudentSearch.tsx` linha 59, o componente Badge recebe `variant="warning"`, que não existe no shadcn/ui. A correção é remover o variant e usar apenas a className personalizada:
-```tsx
-case 'payment_pending': return <Badge className="text-yellow-800 bg-yellow-100 border-yellow-300">Pagamento Pendente</Badge>;
-```
+**1. `supabase/functions/generate-vapid-keys/index.ts` — linha 36**
 
----
+Bloco `catch (error)` sem type guard. Correção: adicionar `const msg = error instanceof Error ? error.message : String(error)` e usar `msg`.
 
-### 2. Migração para Supabase Externo
+**2. `supabase/functions/push-notify/index.ts` — linha 231**
 
-**Passo a passo para você (fora do Lovable):**
+Mesmo problema no bloco `catch` principal. Correção idêntica à anterior.
 
-1. Acesse [supabase.com](https://supabase.com) e crie um novo projeto
-2. No SQL Editor do novo projeto, rode o arquivo `supabase/full_migration.sql` (já existe no projeto)
-3. Crie os secrets no novo Supabase (Settings → Edge Functions → Secrets):
-   - `STRIPE_SECRET_KEY`
-   - `VAPID_PUBLIC_KEY`
-   - `VAPID_PRIVATE_KEY`
-   - `LOVABLE_API_KEY`
+**3. `supabase/functions/register-push/index.ts` — linha 51**
 
-**O que vou alterar no código:**
+Mesmo problema. Correção idêntica.
 
-A. **`src/integrations/supabase/client.ts`** — Este arquivo é gerenciado automaticamente pelo Lovable Cloud e **não pode** ser editado. Porém, ao conectar o GitHub e rodar localmente, basta definir as variáveis de ambiente:
-```
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-anon-key
-```
+### Resultado Após as Correções
 
-B. **`.env.example`** — Atualizar para documentar corretamente as variáveis necessárias.
+- Build das Edge Functions volta a funcionar sem erros TypeScript
+- Comportamento em runtime permanece idêntico (o type guard não muda a lógica)
+- Todas as outras Edge Functions já estão corretas (`check-subscription`, `create-checkout`, `extract-bioimpedance`, `student-signed-urls` já usam o padrão `instanceof Error ? error.message : String(error)`)
+- O arquivo `StudentSearch.tsx` já está correto (a versão atual não tem `variant="warning"` — está usando `className` diretamente na linha 59)
+- O `vite.config.ts` com as credenciais do Supabase externo está correto e funcional
+- Toda a estrutura de rotas, RLS e hooks está consistente
 
-C. **`supabase/config.toml`** — Atualizar o `project_id` para o ID do novo projeto Supabase.
-
-D. **Edge Functions** — Fazer deploy delas no novo projeto via CLI:
-```bash
-supabase link --project-ref SEU-PROJECT-ID
-supabase functions deploy check-subscription
-supabase functions deploy create-checkout
-supabase functions deploy extract-bioimpedance
-supabase functions deploy student-signed-urls
-supabase functions deploy register-push
-supabase functions deploy push-notify
-supabase functions deploy generate-vapid-keys
-```
-
----
-
-## Resumo das mudanças de código
+### Arquivos Modificados
 
 | Arquivo | Mudança |
 |---|---|
-| `supabase/functions/check-subscription/index.ts` | Corrigir import do supabase-js |
-| `supabase/functions/create-checkout/index.ts` | Corrigir import do supabase-js |
-| `supabase/functions/student-signed-urls/index.ts` | Corrigir import do supabase-js |
-| `supabase/functions/extract-bioimpedance/index.ts` | Corrigir import do supabase-js |
-| `src/components/admin/StudentSearch.tsx` | Remover `variant="warning"` inválido |
-| `.env.example` | Documentar as variáveis de ambiente corretas |
-
----
-
-## Importante
-
-- Enquanto o projeto continuar aberto aqui no Lovable Editor, ele continuará usando o banco do Lovable Cloud automaticamente (o `client.ts` é gerenciado por ele).
-- Para usar o Supabase externo com o Lovable Editor, seria necessário **desabilitar o Lovable Cloud** — o que é uma mudança irreversível. Recomendo fortemente usar o Supabase externo apenas **em produção (Vercel)**, mantendo o Lovable Cloud para desenvolvimento aqui.
-- Os erros de build serão corrigidos imediatamente e o projeto voltará a funcionar normalmente aqui.
+| `supabase/functions/generate-vapid-keys/index.ts` | Type guard no catch (linha 36) |
+| `supabase/functions/push-notify/index.ts` | Type guard no catch (linha 231) |
+| `supabase/functions/register-push/index.ts` | Type guard no catch (linha 51) |
