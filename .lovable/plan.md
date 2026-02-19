@@ -1,57 +1,19 @@
 
+# Ocultar aba de horarios para alunos de consultoria
 
-# Correcao do Drag-and-Drop na Agenda
+## O que muda
 
-## Causa raiz
+No formulario de cadastro/edicao de alunos (`src/pages/Students.tsx`), quando o switch "Consultoria" estiver ativado, as seguintes secoes serao ocultadas:
 
-O componente `renderSessionCard` usa `motion.div` do framer-motion com `draggable` e `onDragStart`. O problema e que o framer-motion intercepta esses eventos e os trata como seu proprio sistema de drag (animacoes de arrastar), nao como o drag-and-drop nativo do HTML5. Por isso, `e.dataTransfer.setData('sessionId', ...)` nunca funciona -- o evento recebido nao e um `DragEvent` nativo, e sim um evento do framer-motion.
+1. **Frequencia semanal** (botoes 1x a 6x)
+2. **Dias e horarios** (selects de dia da semana + inputs de hora)
 
-## Solucao
+Isso faz sentido porque alunos de consultoria nao tem sessoes presenciais com horario fixo na semana.
 
-Envolver o `motion.div` em um `div` nativo que controla o drag-and-drop HTML5, deixando o `motion.div` apenas para animacoes de entrada (fade-in).
+## Detalhes tecnicos
 
-## Mudancas
+### Arquivo: `src/pages/Students.tsx`
 
-### Arquivo: `src/pages/Schedule.tsx`
+No componente `StudentForm`, envolver os blocos de "Frequencia semanal" (linhas 509-522) e "Dias e horarios" (linhas 524-551) em uma condicional `{!form.is_consulting && (...)}`.
 
-**Funcao `renderSessionCard`** (linhas 212-271):
-
-Separar as responsabilidades:
-- Um `div` externo (nativo) recebe `draggable`, `onDragStart` e `onClick`
-- O `motion.div` interno fica apenas com animacoes visuais (sem `draggable`, sem `onDragStart`, sem `onClick`)
-
-```tsx
-// ANTES (nao funciona - motion.div intercepta drag):
-<motion.div
-  draggable={draggable}
-  onDragStart={draggable ? (e) => handleDragStart(e as any, session) : undefined}
-  onClick={() => setDetailSession(session)}
-  ...
->
-
-// DEPOIS (div nativo controla drag, motion.div so anima):
-<div
-  draggable={draggable}
-  onDragStart={draggable ? (e) => handleDragStart(e, session) : undefined}
-  onClick={() => setDetailSession(session)}
-  className={cn(
-    draggable && 'cursor-grab active:cursor-grabbing'
-  )}
->
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    className={cn(
-      'glass rounded-xl p-3 relative overflow-hidden',
-      isCompleted && 'opacity-70',
-      isCancelled && 'opacity-40'
-    )}
-  >
-    {/* conteudo do card inalterado */}
-  </motion.div>
-</div>
-```
-
-Tambem remover o cast `as any` do `handleDragStart`, pois agora o evento sera um `React.DragEvent` nativo real.
-
-Nenhum outro arquivo precisa ser alterado. O resto da logica de drop (handleDragOver, handleDrop, handleDragLeave) ja esta correta nos containers de hora.
+Nenhum outro arquivo precisa ser alterado. A mudanca e puramente visual no formulario.
