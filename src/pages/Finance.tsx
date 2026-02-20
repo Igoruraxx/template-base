@@ -95,7 +95,7 @@ const Finance = () => {
       setTimeout(() => {
         openWhatsApp(
           p.students.phone,
-          `Olá ${p.students.name}, seu pagamento de R$ ${Number(p.amount).toFixed(2)} referente a ${format(new Date(viewMonthStr + '-01'), 'MMMM/yyyy', { locale: ptBR })} está ${p.status === 'overdue' ? 'atrasado' : 'pendente'}. Podemos resolver?`
+          `Olá ${p.students.name}! Tudo bem? Vi aqui no sistema que a mensalidade de R$ ${Number(p.amount).toFixed(2)} referente a ${format(new Date(viewMonthStr + '-01'), 'MMMM/yyyy', { locale: ptBR })} ainda consta em aberto. Aconteceu algum imprevisto? Se já tiver pago, pode desconsiderar. Qualquer dúvida é só me chamar!`
         );
       }, i * 1500);
     });
@@ -334,7 +334,7 @@ const Finance = () => {
                         {payment.students?.phone && (
                           <button onClick={() => openWhatsApp(
                             payment.students.phone,
-                            `Olá ${payment.students.name}, seu pagamento de R$ ${Number(payment.amount).toFixed(2)} referente a ${payment.reference_month} está ${payment.status === 'overdue' ? 'atrasado' : 'pendente'}. Podemos resolver?`
+                            `Olá ${payment.students.name}! Tudo bem? Vi aqui no sistema que a mensalidade de R$ ${Number(payment.amount).toFixed(2)} referente a ${payment.reference_month} ainda consta em aberto. Aconteceu algum imprevisto? Se já tiver pago, pode desconsiderar. Qualquer dúvida é só me chamar!`
                           )} className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 p-2 rounded-xl transition-all" title="Cobrar no WhatsApp">
                             <MessageCircle className="h-4 w-4" />
                           </button>

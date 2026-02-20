@@ -35,6 +35,8 @@ export const useTrainerSubscription = () => {
   const slotsTotal = isPremium ? Infinity : FREE_LIMIT;
   const canAddActiveStudent = isPremium || activeStudents < FREE_LIMIT;
   const isNearLimit = !isPremium && activeStudents >= FREE_LIMIT - 1;
+  const startedAt = subscriptionQuery.data?.started_at;
+  const expiresAt = subscriptionQuery.data?.expires_at;
 
   return {
     plan,
@@ -46,6 +48,8 @@ export const useTrainerSubscription = () => {
     canAddActiveStudent,
     isNearLimit,
     activeStudents,
+    startedAt,
+    expiresAt,
     isLoading: subscriptionQuery.isLoading,
     refetch: subscriptionQuery.refetch,
   };

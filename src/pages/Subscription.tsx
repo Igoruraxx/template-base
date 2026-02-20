@@ -6,13 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrainerSubscription } from '@/hooks/useTrainerSubscription';
-import { ChevronLeft, Crown, Clock, Shield, CheckCircle, Smartphone } from 'lucide-react';
+import { ChevronLeft, Crown, Clock, Shield, CheckCircle, Smartphone, CalendarDays, QrCode } from 'lucide-react';
 import { openWhatsApp } from '@/lib/whatsapp';
+import { differenceInDays, parseISO, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const Subscription = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { plan, isPremium, isPendingPix, status } = useTrainerSubscription();
+  const { plan, isPremium, isPendingPix, status, startedAt, expiresAt } = useTrainerSubscription();
+
+  const daysRemaining = expiresAt ? Math.max(0, differenceInDays(parseISO(expiresAt), new Date())) : 0;
+  const isExpiringSoon = daysRemaining <= 5 && isPremium;
 
   return (
     <AppLayout>
@@ -52,7 +57,35 @@ const Subscription = () => {
             </div>
 
             {isPremium ? (
-              <div className="pt-4 space-y-3 w-full">
+              <div className="pt-4 space-y-4 w-full">
+                
+                {/* Status da Validade do Plano */}
+                <div className={`p-4 rounded-xl border flex items-center gap-4 ${isExpiringSoon ? 'bg-rose-500/10 border-rose-500/30' : 'bg-card border-border/50'}`}>
+                  <div className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center ${isExpiringSoon ? 'bg-rose-500/20 text-rose-500' : 'bg-primary/20 text-primary'}`}>
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <div className="text-left flex-1 min-w-0">
+                    <p className={`font-bold text-lg leading-tight ${isExpiringSoon ? 'text-rose-500' : ''}`}>
+                      {daysRemaining} dias restantes
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      Válido até {expiresAt ? format(parseISO(expiresAt), "dd 'de' MMMM", { locale: ptBR }) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                   <div className="bg-muted/30 border border-border/50 p-3 rounded-xl text-left">
+                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Início do plano</p>
+                     <p className="text-sm font-semibold">{startedAt ? format(parseISO(startedAt), "dd/MM/yyyy") : '-'}</p>
+                   </div>
+                   <div className="bg-muted/30 border border-border/50 p-3 rounded-xl text-left">
+                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Vencimento</p>
+                     <p className="text-sm font-semibold">{expiresAt ? format(parseISO(expiresAt), "dd/MM/yyyy") : '-'}</p>
+                   </div>
+                </div>
+
+                {/* Área de Renovação / Benefícios */}
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-card border shadow-sm text-left">
                   <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />
                   <div>
@@ -60,6 +93,13 @@ const Subscription = () => {
                     <p className="text-xs text-muted-foreground">Você pode adicionar quantos alunos quiser na plataforma.</p>
                   </div>
                 </div>
+
+                {isExpiringSoon && (
+                  <Button className="w-full h-12 text-md font-bold gradient-primary shadow-xl shadow-primary/25 rounded-xl hover:scale-[1.02] transition-transform animate-pulse"
+                          onClick={() => openWhatsApp('5511999999999', `Olá! Quero renovar minha assinatura Premium (${user?.email}) via PIX.`)}>
+                      <QrCode className="h-5 w-5 mr-2" /> Renovar via PIX
+                  </Button>
+                )}
                 
                 <div className="pt-4 border-t w-full text-left space-y-3">
                    <h3 className="font-semibold text-sm">Precisa de ajuda?</h3>
@@ -80,24 +120,26 @@ const Subscription = () => {
                     </ul>
                 </div>
                 
-                <div className="bg-card border shadow-lg rounded-xl p-6 text-center">
+                <div className="bg-card border shadow-lg rounded-xl p-6 text-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none" />
+                    
                     <p className="text-4xl font-black text-primary mb-1">R$ 9,90<span className="text-sm font-medium text-muted-foreground">/mês</span></p>
-                    <p className="text-xs text-muted-foreground mb-6">Pagamento via PIX. Ativação imediata.</p>
+                    <p className="text-xs text-muted-foreground mb-6">Pague rápido via PIX. Ativação imediata sem burocracia de cartão.</p>
                     
                     {isPendingPix ? (
-                        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm">
-                            <Clock className="h-5 w-5 mx-auto mb-2" />
-                            <p className="font-semibold mb-1">Aguardando comprovação</p>
-                            <p className="text-xs opacity-80 mb-3">Seu PIX está em análise. Envie o comprovante via WhatsApp para liberar agora.</p>
-                            <Button size="sm" variant="outline" className="w-full bg-amber-500 text-white border-none hover:bg-amber-600" 
+                        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm">
+                            <Clock className="h-6 w-6 mx-auto mb-2 animate-pulse" />
+                            <p className="font-bold mb-1">Pagamento em Análise</p>
+                            <p className="text-xs opacity-80 mb-4">Seu PIX está sendo verificado. Envie o comprovante via WhatsApp para liberação expressa.</p>
+                            <Button size="sm" variant="outline" className="w-full bg-amber-500 text-white border-none hover:bg-amber-600 shadow-lg shadow-amber-500/20" 
                                     onClick={() => openWhatsApp('5511999999999', `Olá! Fiz um PIX para o plano Premium do meu email ${user?.email}. Segue o comprovante.`)}>
                                 Enviar Comprovante
                             </Button>
                         </div>
                     ) : (
-                        <Button className="w-full h-12 text-md font-bold gradient-primary shadow-xl shadow-primary/25 rounded-xl hover:scale-[1.02] transition-transform"
+                        <Button className="w-full h-14 text-md font-bold gradient-primary shadow-xl shadow-primary/25 rounded-xl hover:scale-[1.02] transition-transform active:scale-95 flex items-center justify-center gap-2"
                                 onClick={() => openWhatsApp('5511999999999', `Olá! Quero fazer o upgrade da minha conta (${user?.email}) para o plano Premium via PIX.`)}>
-                            <Crown className="h-5 w-5 mr-2" /> Fazer Upgrade via PIX
+                            <QrCode className="h-5 w-5" /> Fazer Upgrade via PIX
                         </Button>
                     )}
                 </div>
