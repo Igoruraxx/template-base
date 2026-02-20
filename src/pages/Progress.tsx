@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import html2canvas from 'html2canvas';
 import { useStudents } from '@/hooks/useStudents';
 import { useProgressPhotos, useDeleteProgressPhoto } from '@/hooks/useProgressPhotos';
 import { useBioimpedance, useCreateBioimpedance, useDeleteBioimpedance } from '@/hooks/useBioimpedance';
@@ -46,6 +47,8 @@ const Progress = () => {
   const [bioDialog, setBioDialog] = useState(false);
   const [ocrDialog, setOcrDialog] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const { data: photos } = useProgressPhotos(selectedStudent || undefined);
   const { data: bioRecords } = useBioimpedance(selectedStudent || undefined);
@@ -137,6 +140,33 @@ const Progress = () => {
   })) || [];
 
   const availableStudents = students?.filter(s => s.status !== 'inactive') || [];
+
+  const handleDownloadPdf = async () => {
+    if (!bioRecords) return;
+    setIsGeneratingPdf(true);
+    let chartBase64: string | undefined = undefined;
+    
+    try {
+      if (chartRef.current && chartData.length > 1) {
+        toast({ title: 'Gerando PDF...', description: 'Processando gráficos e fotos. Isso pode levar alguns segundos.' });
+        const canvas = await html2canvas(chartRef.current, {
+           backgroundColor: null,
+           scale: 2,
+           logging: false
+        });
+        chartBase64 = canvas.toDataURL('image/png');
+      }
+
+      const studentName = availableStudents.find(s => s.id === selectedStudent)?.name || 'Aluno';
+      await generateBioimpedancePdf(bioRecords, studentName, photos || undefined, chartBase64);
+      toast({ title: 'Relatório gerado com sucesso!' });
+    } catch (error) {
+       console.error(error);
+       toast({ title: 'Erro ao gerar relatório', description: 'Não foi possível renderizar o PDF de evolução.', variant: 'destructive' });
+    } finally {
+       setIsGeneratingPdf(false);
+    }
+  };
 
   return (
     <AppLayout>
@@ -310,7 +340,7 @@ const Progress = () => {
                 </div>
 
                 {chartData.length > 1 && (
-                  <div className="glass rounded-2xl p-4 mb-5 border border-border/50 shadow-sm">
+                  <div className="glass rounded-2xl p-4 mb-5 border border-border/50 shadow-sm bg-background/95" ref={chartRef}>
                     <ResponsiveContainer width="100%" height={220}>
                       <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -348,16 +378,12 @@ const Progress = () => {
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => {
-                              if (bioRecords) {
-                                const studentName = availableStudents.find(s => s.id === selectedStudent)?.name || 'Aluno';
-                                generateBioimpedancePdf(bioRecords, studentName, photos || undefined);
-                              }
-                            }}
-                            className="text-muted-foreground hover:text-primary transition-colors p-1"
+                            onClick={handleDownloadPdf}
+                            disabled={isGeneratingPdf}
+                            className={`transition-colors p-1 ${isGeneratingPdf ? 'text-primary/50 animate-pulse' : 'text-muted-foreground hover:text-primary'}`}
                             title="Baixar Relatório Completo"
                           >
-                            <FileDown className="h-4 w-4" />
+                            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                           </button>
                           <button onClick={() => deleteBio.mutate(record.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
                             <Trash2 className="h-4 w-4" />

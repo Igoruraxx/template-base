@@ -9,6 +9,7 @@ interface ProgressPhoto {
   photo_url: string;
   photo_type: string | null;
   taken_at: string;
+  notes?: string | null;
 }
 
 const PHOTO_TYPE_LABELS: Record<string, string> = {
@@ -18,7 +19,7 @@ const PHOTO_TYPE_LABELS: Record<string, string> = {
   other: 'Outro',
 };
 
-async function loadImageAsBase64(url: string): Promise<string | null> {
+async function loadImageAsBase64(url: string, maxSize = 800): Promise<string | null> {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -28,7 +29,6 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const maxSize = 800;
           let { width, height } = img;
           if (width > maxSize || height > maxSize) {
             if (width > height) {
@@ -43,7 +43,7 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
           canvas.height = height;
           const ctx = canvas.getContext('2d')!;
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.7));
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
         };
         img.onerror = () => resolve(null);
         img.src = reader.result as string;
@@ -69,174 +69,266 @@ const METRICS: { key: keyof BioRecord; label: string; unit: string; decimals: nu
 export async function generateBioimpedancePdf(
   records: BioRecord[],
   studentName: string,
-  photos?: ProgressPhoto[]
+  photos?: ProgressPhoto[],
+  chartBase64?: string
 ) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  let y = 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 0;
 
-  // Load logo
-  const logoBase64 = await loadImageAsBase64('/icon-192.png');
-
-  // Header with logo
-  if (logoBase64) {
-    doc.addImage(logoBase64, 'PNG', 14, y, 18, 18);
-    doc.setFontSize(16);
+  // -- FUNÇÕES DE DESENHO AUXILIARES --
+  const drawHeader = async () => {
+    doc.setFillColor(16, 185, 129); // emerald-500
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    // Logo se existir
+    const logoBase64 = await loadImageAsBase64('/icon-192.png');
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', 14, 10, 20, 20);
+    }
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('Relatório de Bioimpedância', 36, y + 7);
-    doc.setFontSize(11);
+    doc.text('Relatório de Progresso', 40, 20);
+    
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(studentName, 36, y + 13);
-    doc.setFontSize(9);
-    doc.text(format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR }), 36, y + 18);
-    y += 26;
+    doc.text(`Aluno: ${studentName}`, 40, 28);
+    
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - 14, 20, { align: 'right' });
+    y = 50;
+  };
+
+  await drawHeader();
+
+  // Se não houver records, desenhar capa de fotos apenas
+  if (!records || records.length === 0) {
+     doc.setTextColor(0, 0, 0);
+     doc.setFontSize(14);
+     doc.text('Nenhum dado de bioimpedância registrado.', 14, y);
+     y += 10;
   } else {
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Relatório de Bioimpedância', pageWidth / 2, y, { align: 'center' });
-    y += 8;
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text(studentName, pageWidth / 2, y, { align: 'center' });
-    y += 6;
-    doc.setFontSize(9);
-    doc.text(format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR }), pageWidth / 2, y, { align: 'center' });
-    y += 10;
-  }
+      // -- RESUMO EXECUTIVO (HIGHLIGHTS) --
+      const first = records[0];
+      const latest = records[records.length - 1];
+      const firstDate = format(parseISO(first.measured_at), 'dd/MM/yyyy');
+      const latestDate = format(parseISO(latest.measured_at), 'dd/MM/yyyy');
 
-  // Divider
-  doc.setDrawColor(200);
-  doc.line(14, y, pageWidth - 14, y);
-  y += 8;
-
-  // Latest record data
-  const latest = records[records.length - 1];
-  doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Última Medição', 14, y);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(format(parseISO(latest.measured_at), "d 'de' MMMM 'de' yyyy", { locale: ptBR }), 80, y);
-  y += 8;
-
-  doc.setFontSize(10);
-  for (const m of METRICS) {
-    const val = latest[m.key];
-    if (val != null) {
-      doc.text(`${m.label}: ${Number(val).toFixed(m.decimals)}${m.unit ? ' ' + m.unit : ''}`, 14, y);
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Resumo Executivo', 14, y);
       y += 6;
-    }
-  }
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Comparativo entre ${firstDate} e ${latestDate}`, 14, y);
+      y += 8;
 
-  if (latest.notes) {
-    y += 2;
-    doc.setFont('helvetica', 'italic');
-    doc.text(`Obs: ${latest.notes}`, 14, y);
-    doc.setFont('helvetica', 'normal');
-    y += 6;
-  }
+      if (records.length > 1) {
+          const drawHighlightCard = (label: string, valueStr: string, diffStr: string, isPositive: boolean, vx: number) => {
+             doc.setFillColor(248, 250, 252); // slate-50
+             doc.setDrawColor(226, 232, 240); // slate-200
+             doc.roundedRect(vx, y, 55, 22, 2, 2, 'FD');
 
-  // Comparative table
-  if (records.length > 1) {
-    y += 6;
-    if (y > 220) { doc.addPage(); y = 20; }
+             doc.setFontSize(9);
+             doc.setTextColor(100, 116, 139); // slate-500
+             doc.text(label, vx + 5, y + 6);
 
-    const first = records[0];
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Evolução Comparativa', 14, y);
-    y += 8;
+             doc.setFontSize(14);
+             doc.setFont('helvetica', 'bold');
+             doc.setTextColor(15, 23, 42); // slate-900
+             doc.text(valueStr, vx + 5, y + 14);
 
-    // Table header
-    const col1 = 14;
-    const col2 = 80;
-    const col3 = 115;
-    const col4 = 150;
+             if (diffStr) {
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                if (isPositive) doc.setTextColor(16, 185, 129); // emerald-500
+                else doc.setTextColor(244, 63, 94); // rose-500
+                doc.text(diffStr, vx + 55 - 5, y + 14, { align: 'right' });
+             }
+          };
 
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Métrica', col1, y);
-    doc.text(format(parseISO(first.measured_at), 'dd/MM/yy'), col2, y);
-    doc.text(format(parseISO(latest.measured_at), 'dd/MM/yy'), col3, y);
-    doc.text('Diferença', col4, y);
-    y += 2;
-    doc.setDrawColor(180);
-    doc.line(col1, y, 190, y);
-    y += 5;
+          const calcDiff = (key: keyof BioRecord, invertPositive = false) => {
+             const f = first[key];
+             const l = latest[key];
+             if (f == null || l == null) return null;
+             const diff = Number(l) - Number(f);
+             if (diff === 0) return null;
+             const isPositive = invertPositive ? diff <= 0 : diff >= 0; // Ex: perder gordura = positivo
+             const diffStr = diff > 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+             return { diffStr, isPositive };
+          };
 
-    doc.setFont('helvetica', 'normal');
-    for (const m of METRICS) {
-      const firstVal = first[m.key] != null ? Number(first[m.key]) : null;
-      const latestVal = latest[m.key] != null ? Number(latest[m.key]) : null;
+          const weightDiff = calcDiff('weight', true); // Perder peso eh positivo/neutro dependendo
+          const fatDiff = calcDiff('body_fat_pct', true); // Perder gordura = verde
+          const muscleDiff = calcDiff('muscle_mass', false); // Ganhar musculo = verde
 
-      if (firstVal == null && latestVal == null) continue;
-
-      doc.text(m.label, col1, y);
-      doc.text(firstVal != null ? firstVal.toFixed(m.decimals) : '-', col2, y);
-      doc.text(latestVal != null ? latestVal.toFixed(m.decimals) : '-', col3, y);
-
-      if (firstVal != null && latestVal != null) {
-        const diff = latestVal - firstVal;
-        const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '=';
-        const sign = diff > 0 ? '+' : '';
-        doc.text(`${arrow} ${sign}${diff.toFixed(m.decimals)}`, col4, y);
+          if (latest.weight) drawHighlightCard('Peso Atual', `${Number(latest.weight).toFixed(1)}kg`, weightDiff?.diffStr || '', weightDiff?.isPositive || false, 14);
+          if (latest.body_fat_pct) drawHighlightCard('Gordura (%)', `${Number(latest.body_fat_pct).toFixed(1)}%`, fatDiff?.diffStr || '', fatDiff?.isPositive || false, 75);
+          if (latest.muscle_mass) drawHighlightCard('Massa Magra', `${Number(latest.muscle_mass).toFixed(1)}kg`, muscleDiff?.diffStr || '', muscleDiff?.isPositive || false, 136);
+          
+          y += 32;
       } else {
-        doc.text('-', col4, y);
+         // Só tem uma medição, desenhar apenas os dados dela
+         doc.setTextColor(15, 23, 42);
+         doc.text('Primeira e única medição registrada até o momento.', 14, y);
+         y += 10;
       }
-      y += 6;
-    }
+
+      // -- GRÁFICO (Chart) --
+      if (chartBase64) {
+         doc.setTextColor(30, 41, 59);
+         doc.setFontSize(14);
+         doc.setFont('helvetica', 'bold');
+         doc.text('Evolução Gráfica', 14, y);
+         y += 6;
+         
+         // Injeta o chart
+         // Proporção base do gráfico é em geral 100% por 220px: vamos adaptar para PDF
+         const chartWidth = 180;
+         const chartHeight = 65;
+         
+         // Fundo cinza suave pra destacar
+         doc.setFillColor(252, 252, 253);
+         doc.setDrawColor(226, 232, 240);
+         doc.roundedRect(14, y, chartWidth, chartHeight, 3, 3, 'FD');
+         
+         doc.addImage(chartBase64, 'PNG', 14, y, chartWidth, chartHeight);
+         y += chartHeight + 12;
+      }
+
+      // -- TABELA DE HISTÓRICO --
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Histórico Completo', 14, y);
+      y += 8;
+
+      // Header da Tabela
+      doc.setFillColor(241, 245, 249); // slate-100
+      doc.rect(14, y, pageWidth - 28, 8, 'F');
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text('Data', 16, y + 5.5);
+      doc.text('Peso', 45, y + 5.5);
+      doc.text('Gordura', 75, y + 5.5);
+      doc.text('M.Magra', 105, y + 5.5);
+      doc.text('V. Visc.', 135, y + 5.5);
+      doc.text('Água', 160, y + 5.5);
+      y += 8;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(15, 23, 42);
+
+      // Inverter registros para mostrar sempre o mais novo antes, assim como no app
+      const reversedRecords = [...records].reverse();
+
+      for (const record of reversedRecords) {
+         if (y > pageHeight - 20) {
+            doc.addPage();
+            y = 15;
+         }
+
+         doc.text(format(parseISO(record.measured_at), 'dd/MM/yy'), 16, y + 6);
+         doc.text(record.weight ? `${Number(record.weight).toFixed(1)}kg` : '-', 45, y + 6);
+         doc.text(record.body_fat_pct ? `${Number(record.body_fat_pct).toFixed(1)}%` : '-', 75, y + 6);
+         doc.text(record.muscle_mass ? `${Number(record.muscle_mass).toFixed(1)}kg` : '-', 105, y + 6);
+         doc.text(record.visceral_fat ? `${Number(record.visceral_fat).toFixed(0)}` : '-', 135, y + 6);
+         doc.text(record.body_water_pct ? `${Number(record.body_water_pct).toFixed(1)}%` : '-', 160, y + 6);
+         
+         // Linha separadora
+         doc.setDrawColor(226, 232, 240);
+         doc.line(14, y + 9, pageWidth - 14, y + 9);
+         
+         y += 9;
+         
+         // Exibe notas se existir
+         if (record.notes) {
+             doc.setFontSize(8);
+             doc.setTextColor(100, 116, 139);
+             doc.text(`Obs: ${record.notes}`, 16, y + 4);
+             y += 6;
+             doc.setFontSize(9);
+             doc.setTextColor(15, 23, 42);
+         }
+      }
   }
 
-  // Progress Photos
+  // -- FOTOS DE PROGRESSO --
   if (photos && photos.length > 0) {
+    // Agrupa fotos por data
     const grouped: Record<string, ProgressPhoto[]> = {};
     for (const p of photos) {
-      const dateKey = p.taken_at;
-      if (!grouped[dateKey]) grouped[dateKey] = [];
-      grouped[dateKey].push(p);
+      if (!grouped[p.taken_at]) grouped[p.taken_at] = [];
+      grouped[p.taken_at].push(p);
     }
 
-    const sortedDates = Object.keys(grouped).sort();
+    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
     for (const dateKey of sortedDates) {
       doc.addPage();
-      y = 20;
+      y = 15;
 
-      doc.setFontSize(13);
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       const dateLabel = format(parseISO(dateKey), "d 'de' MMMM 'de' yyyy", { locale: ptBR });
-      doc.text(`Fotos de Progresso — ${dateLabel}`, 14, y);
-      y += 10;
+      doc.text(`Evolução Visual — ${dateLabel}`, 14, y);
+      
+      doc.setDrawColor(16, 185, 129); // emerald-500
+      doc.setLineWidth(1);
+      doc.line(14, y + 3, 50, y + 3);
+      doc.setLineWidth(0.2); // volta pro padrao
+      y += 15;
 
       const datePhotos = grouped[dateKey];
+      // Ordena por tipo: frente, lado, costas
+      const typeOrder = { 'front': 1, 'side': 2, 'back': 3, 'other': 4 };
+      datePhotos.sort((a, b) => (typeOrder[a.photo_type || 'other'] || 9) - (typeOrder[b.photo_type || 'other'] || 9));
+
       const photoWidth = 55;
-      const photoHeight = 75;
-      const gap = 5;
+      const photoHeight = 75; // Proporcao 3/4
+      const gap = 6;
       const startX = 14;
 
       for (let i = 0; i < datePhotos.length; i++) {
         const col = i % 3;
         if (i > 0 && col === 0) {
           y += photoHeight + 15;
-          if (y + photoHeight > 280) {
+          if (y + photoHeight > pageHeight - 20) {
             doc.addPage();
             y = 20;
           }
         }
 
         const x = startX + col * (photoWidth + gap);
-        const base64 = await loadImageAsBase64(datePhotos[i].photo_url);
+        const base64 = await loadImageAsBase64(datePhotos[i].photo_url, 1000); // 1000px qualidade boa p/ foto corpo
         if (base64) {
+          // Borda bonita ao redor da foto
+          doc.setDrawColor(226, 232, 240);
+          doc.setFillColor(248, 250, 252);
+          doc.roundedRect(x, y, photoWidth, photoHeight, 2, 2, 'FD');
+          
           doc.addImage(base64, 'JPEG', x, y, photoWidth, photoHeight);
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'normal');
+          
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(71, 85, 105);
           const typeLabel = PHOTO_TYPE_LABELS[datePhotos[i].photo_type || 'other'] || 'Outro';
-          doc.text(typeLabel, x + photoWidth / 2, y + photoHeight + 4, { align: 'center' });
+          
+          // Badge text centrado abaixo da foto
+          doc.text(typeLabel, x + photoWidth / 2, y + photoHeight + 6, { align: 'center' });
         }
       }
+      y += photoHeight + 20; // Espaçamento proximo grupo
     }
   }
 
   const safeName = studentName.replace(/[^a-zA-Z0-9]/g, '_');
-  doc.save(`bioimpedancia-${safeName}.pdf`);
+  doc.save(`Progresso_${safeName}.pdf`);
 }
