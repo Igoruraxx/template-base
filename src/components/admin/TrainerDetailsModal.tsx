@@ -8,13 +8,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useTrainerStudents, useTrainerSubscriptionDetails, TrainerOverview } from "@/hooks/useAdminData";
+import { useTrainerStudents, useTrainerSubscriptionDetails, TrainerOverview, useAdminMutations } from "@/hooks/useAdminData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Mail, Calendar, Users, Shield, CreditCard, Ban, CheckCircle, Trash2 } from "lucide-react";
+import { Mail, Calendar, Users, Shield, CreditCard, Ban, CheckCircle, Trash2, Plus, Clock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface TrainerDetailsModalProps {
   trainer: TrainerOverview | null;
@@ -41,6 +42,14 @@ export const TrainerDetailsModal = ({
 }: TrainerDetailsModalProps) => {
   const { data: students, isLoading: isLoadingStudents } = useTrainerStudents(trainer?.user_id || null);
   const { data: subDetails, isLoading: isLoadingSub } = useTrainerSubscriptionDetails(trainer?.user_id || null);
+  const { addPremiumDays } = useAdminMutations();
+
+  const handleAddDays = (days: number) => {
+    addPremiumDays.mutate({ trainerId: trainer!.user_id, days }, {
+      onSuccess: () => toast.success(`${days} dias de Premium adicionados!`),
+      onError: () => toast.error('Erro ao adicionar dias')
+    });
+  };
 
   if (!trainer) return null;
 
@@ -99,7 +108,8 @@ export const TrainerDetailsModal = ({
             <TabsList className="bg-muted/50 w-full justify-start rounded-b-none border-b-0">
               <TabsTrigger value="overview" className="flex-1 sm:flex-none">Visão Geral</TabsTrigger>
               <TabsTrigger value="students" className="flex-1 sm:flex-none">Alunos ({trainer.active_students})</TabsTrigger>
-              <TabsTrigger value="finance" className="flex-1 sm:flex-none">Financeiro</TabsTrigger>
+              <TabsTrigger value="finance" className="flex-1 sm:flex-none">Histórico</TabsTrigger>
+              <TabsTrigger value="manage_sub" className="flex-1 sm:flex-none bg-primary/10 text-primary">Gerenciar Plano</TabsTrigger>
             </TabsList>
           </div>
 
@@ -224,6 +234,66 @@ export const TrainerDetailsModal = ({
                 )}
             </TabsContent>
 
+            <TabsContent value="manage_sub" className="m-0 space-y-6">
+                <div className="p-6 border rounded-xl bg-card shadow-sm space-y-6">
+                    <div>
+                        <h4 className="font-bold text-lg flex items-center gap-2"><Shield className="h-5 w-5 text-primary" /> Controle de Acesso</h4>
+                        <p className="text-sm text-muted-foreground">Adicione dias de acesso premium manualmente para este treinador.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <Button 
+                          variant="outline" 
+                          className="flex flex-col h-auto py-4 hover:border-primary hover:bg-primary/5 group"
+                          onClick={() => handleAddDays(7)}
+                          disabled={addPremiumDays.isPending}
+                        >
+                            <span className="text-lg font-black group-hover:text-primary">+7 dias</span>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Uma semana</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="flex flex-col h-auto py-4 hover:border-primary hover:bg-primary/5 group"
+                          onClick={() => handleAddDays(15)}
+                          disabled={addPremiumDays.isPending}
+                        >
+                            <span className="text-lg font-black group-hover:text-primary">+15 dias</span>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Duas semanas</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="flex flex-col h-auto py-4 border-primary/50 bg-primary/5 hover:bg-primary/10 group"
+                          onClick={() => handleAddDays(30)}
+                          disabled={addPremiumDays.isPending}
+                        >
+                            <span className="text-lg font-black text-primary">+30 dias</span>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Um mês (Cortesia)</span>
+                        </Button>
+                    </div>
+
+                    <div className="pt-4 border-t space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-2"><Clock className="h-4 w-4" /> Vencimento atual:</span>
+                            <span className="font-bold">
+                                {subDetails?.expires_at 
+                                    ? format(new Date(subDetails.expires_at), "dd 'de' MMM, yyyy", { locale: ptBR }) 
+                                    : 'Ainda sem assinatura'}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-2"><CreditCard className="h-4 w-4" /> Tipo de Plano:</span>
+                            <Badge variant={trainer.plan === 'premium' ? 'default' : 'secondary'} className={trainer.plan === 'premium' ? 'bg-amber-500 hover:bg-amber-600' : ''}>
+                                {trainer.plan === 'premium' ? 'PREMIUM' : 'FREE'}
+                            </Badge>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 rounded-xl border-amber-500/20 bg-amber-500/5 text-xs text-amber-600 flex items-start gap-3 leading-relaxed">
+                    <Shield className="h-4 w-4 shrink-0 mt-0.5" />
+                    <p>Ao adicionar dias, o sistema automaticamente definirá o plano como <strong>Premium</strong> e o status como <strong>Ativo</strong>. Se o treinador já possuir dias restantes, os novos dias serão somados à data de expiração atual.</p>
+                </div>
+            </TabsContent>
           </ScrollArea>
         </Tabs>
       </DialogContent>

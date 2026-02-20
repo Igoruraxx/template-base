@@ -75,7 +75,7 @@ export const useAdminData = () => {
       // Since we don't have a service_role client in frontend, we'll use an RPC if available
       // or just delete from profiles/subscriptions which are linked via CASCADE to other tables
       // But for complete removal, we usually need a function.
-      const { error } = await supabase.rpc('delete_trainer_complete', { t_id: trainerId });
+      const { error } = await supabase.rpc('delete_trainer_complete' as any, { t_id: trainerId });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -145,4 +145,44 @@ export const useTrainerSubscriptionDetails = (trainerId: string | null) => {
     },
     enabled: !!trainerId,
   });
+};
+
+export const useAdminMutations = () => {
+  const queryClient = useQueryClient();
+
+  const addPremiumDays = useMutation({
+    mutationFn: async ({ trainerId, days }: { trainerId: string; days: number }) => {
+      // First get current expiration
+      const { data: current } = await supabase
+        .from('trainer_subscriptions')
+        .select('expires_at')
+        .eq('trainer_id', trainerId)
+        .single();
+
+      let newDate = new Date();
+      if (current?.expires_at && new Date(current.expires_at) > new Date()) {
+        newDate = new Date(current.expires_at);
+      }
+      
+      newDate.setDate(newDate.getDate() + days);
+
+      const { error } = await supabase
+        .from('trainer_subscriptions')
+        .update({
+          expires_at: newDate.toISOString(),
+          status: 'active',
+          plan: 'premium'
+        })
+        .eq('trainer_id', trainerId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-trainers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-trainer-subscription-details'] });
+    },
+  });
+
+  return { addPremiumDays };
 };

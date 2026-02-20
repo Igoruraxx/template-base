@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Search, Ban, CheckCircle, CreditCard, Eye, Trash2 } from 'lucide-react';
+import { Search, Ban, CheckCircle, CreditCard, Eye, Trash2, UserPlus } from 'lucide-react';
+import { isAfter, subHours } from 'date-fns';
 import { TrainerDetailsModal } from './TrainerDetailsModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,10 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
     let matchAdvanced = true;
     if (advancedFilter === 'debt') matchAdvanced = t.sub_status === 'pending_pix';
     if (advancedFilter === 'risk') matchAdvanced = t.plan === 'free' && t.active_students === 0;
+    if (advancedFilter === 'new') {
+      const oneDayAgo = subHours(new Date(), 24);
+      matchAdvanced = t.created_at ? isAfter(new Date(t.created_at), oneDayAgo) : false;
+    }
 
     return matchSearch && matchPlan && matchStatus && matchAdvanced;
   });
@@ -62,6 +67,7 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas Métricas</SelectItem>
+            <SelectItem value="new" className="text-blue-500 font-medium">🆕 Novos Cadastros (24h)</SelectItem>
             <SelectItem value="debt" className="text-amber-500 font-medium">💰 Inadimplentes</SelectItem>
             <SelectItem value="risk" className="text-destructive font-medium">⚠️ Em Risco (0 Alunos)</SelectItem>
           </SelectContent>
@@ -111,61 +117,73 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                 </TableCell>
               </TableRow>
             )}
-            {filtered.map((t) => (
-              <TableRow key={t.user_id}>
-                <TableCell className="font-medium">{t.full_name || '—'}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">{t.email}</TableCell>
-                <TableCell>
-                  {t.role === 'admin' ? (
-                    <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 hover:bg-purple-500/30">
-                      Administrador
-                    </Badge>
-                  ) : t.plan === 'premium' ? (
-                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30">
-                      Assinante
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">Gratuito</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  <span className={t.plan === 'free' && t.active_students >= 4 ? 'text-destructive font-bold' : ''}>
-                    {t.active_students}
-                  </span>
-                  {t.plan === 'free' && <span className="text-muted-foreground text-xs">/5</span>}
-                </TableCell>
-                <TableCell>
-                  {t.sub_status === 'blocked' ? (
-                    <Badge variant="destructive">Bloqueado</Badge>
-                  ) : t.sub_status === 'pending_pix' ? (
-                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30">PIX Pendente</Badge>
-                  ) : (
-                    <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/30">Ativo</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right space-x-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedTrainer(t)}
-                  >
-                    <Eye className="h-3.5 w-3.5 mr-1" />
-                    Ficha Completa
-                  </Button>
-                  {onDelete && (
+            {filtered.map((t) => {
+              const isNew = t.created_at ? isAfter(new Date(t.created_at), subHours(new Date(), 24)) : false;
+              return (
+                <TableRow key={t.user_id} className={isNew ? 'bg-blue-500/5 transition-colors' : 'transition-colors'}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {t.full_name || '—'}
+                      {isNew && (
+                        <Badge className="bg-blue-500 text-white hover:bg-blue-600 animate-pulse text-[10px] h-4 px-1 leading-none border-none">
+                          NOVO
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{t.email}</TableCell>
+                  <TableCell>
+                    {t.role === 'admin' ? (
+                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 hover:bg-purple-500/30">
+                        Administrador
+                      </Badge>
+                    ) : t.plan === 'premium' ? (
+                      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30">
+                        Assinante
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Gratuito</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className={t.plan === 'free' && t.active_students >= 4 ? 'text-destructive font-bold' : ''}>
+                      {t.active_students}
+                    </span>
+                    {t.plan === 'free' && <span className="text-muted-foreground text-xs">/5</span>}
+                  </TableCell>
+                  <TableCell>
+                    {t.sub_status === 'blocked' ? (
+                      <Badge variant="destructive">Bloqueado</Badge>
+                    ) : t.sub_status === 'pending_pix' ? (
+                      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30">PIX Pendente</Badge>
+                    ) : (
+                      <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/30">Ativo</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => onDelete(t.user_id)}
-                      disabled={isDeleting}
+                      onClick={() => setSelectedTrainer(t)}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Eye className="h-3.5 w-3.5 mr-1" />
+                      Ficha Completa
                     </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+                    {onDelete && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => onDelete(t.user_id)}
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -173,6 +191,12 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
         trainer={selectedTrainer} 
         isOpen={!!selectedTrainer} 
         onClose={() => setSelectedTrainer(null)} 
+        onBlock={onBlock}
+        isBlocking={isBlocking}
+        onConfirmPix={onConfirmPix}
+        isConfirmingPix={isConfirmingPix}
+        onDelete={onDelete}
+        isDeleting={isDeleting}
       />
     </div>
   );
