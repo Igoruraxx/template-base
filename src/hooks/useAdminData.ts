@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface TrainerOverview {
   user_id: string;
@@ -19,9 +20,18 @@ export const useAdminData = () => {
     queryKey: ['admin-trainers'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('admin_trainer_overview');
-      if (error) throw error;
-      return data as TrainerOverview[];
+      if (error) {
+        console.error('CRITICAL: Erro ao carregar gestão de usuários:', error);
+        toast.error('Erro ao conectar com o banco de dados administrativo');
+        throw error;
+      }
+      return (data as TrainerOverview[]) || [];
     },
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    retry: 2,
+    meta: {
+      errorMessage: 'Falha ao carregar lista de treinadores'
+    }
   });
 
   const subscriptionsQuery = useQuery({
