@@ -63,11 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAdmin(false);
         setLoading(false);
       }
-
-      if (_event === 'PASSWORD_RECOVERY') {
-        // Redireciona o usuário para a página de atualização de senha
-        window.location.href = '/update-password';
-      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -95,7 +90,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: { 
+        data: { full_name: fullName },
+        emailRedirectTo: `${window.location.origin}/auth/confirm`
+      },
     });
     return { error: error as Error | null };
   };

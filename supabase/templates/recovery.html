@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recupere sua senha</title>
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; color: #18181b; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+    .header { background-color: #18181b; padding: 32px 24px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
+    .header .highlight { color: #facc15; }
+    .content { padding: 32px 24px; }
+    .content p { font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: #3f3f46; }
+    .button-container { text-align: center; margin-top: 32px; margin-bottom: 32px; }
+    .button { display: inline-block; background-color: #18181b; color: #ffffff !important; padding: 14px 28px; font-size: 16px; font-weight: 600; text-decoration: none; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(24, 24, 27, 0.2); transition: background-color 0.2s; }
+    .button:hover { background-color: #27272a; }
+    .footer { background-color: #fafafa; padding: 24px; text-align: center; border-top: 1px solid #e4e4e7; }
+    .footer p { font-size: 14px; color: #71717a; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>FITPRO <span class="highlight">AGENDA</span></h1>
+    </div>
+    <div class="content">
+      <p>Olá,</p>
+      <p>Recebemos uma solicitação para redefinir a senha da sua conta no <strong>FITPRO AGENDA</strong>. Se foi você que solicitou, por favor, clique no botão abaixo para escolher uma nova senha.</p>
+      <div class="button-container">
+        <a href="{{ .ConfirmationURL }}" class="button">Redefinir minha senha</a>
+      </div>
+      <p>Se o botão acima não funcionar, cole o link abaixo em seu navegador:</p>
+      <p style="word-break: break-all; font-size: 14px; color: #71717a;">{{ .ConfirmationURL }}</p>
+      <p>Se você não fez essa solicitação, pode ignorar este e-mail tranquilamente. Sua senha continuará a mesma.</p>
+      <p>Abraços,<br>Equipe FITPRO AGENDA</p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2024 FITPRO AGENDA. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>

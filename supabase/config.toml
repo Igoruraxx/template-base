@@ -20,3 +20,20 @@ verify_jwt = false
 
 [functions.student-signed-urls]
 verify_jwt = false
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173", "http://localhost:5173/auth/confirm", "https://*.lovableproject.com", "https://*.lovableproject.com/auth/confirm"]
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[auth.email.template.confirmation]
+subject = "Confirme seu e-mail do FITPRO AGENDA"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Recupere sua senha do FITPRO AGENDA"
+content_path = "./supabase/templates/recovery.html"
