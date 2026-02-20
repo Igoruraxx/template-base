@@ -12,9 +12,10 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, Plus, Check, Clock, AlertTriangle, Trash2, MessageCircle, ChevronLeft, ChevronRight, Bell, Send } from 'lucide-react';
+import { DollarSign, Plus, Check, Clock, AlertTriangle, Trash2, MessageCircle, ChevronLeft, ChevronRight, Bell, Send, ArrowUpCircle, ArrowDownCircle, ArrowRightCircle } from 'lucide-react';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { cn } from '@/lib/utils';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const STATUS_MAP: Record<string, { label: string; icon: any; className: string }> = {
   paid: { label: 'Pago', icon: Check, className: 'text-primary bg-primary/10' },
@@ -149,6 +150,24 @@ const Finance = () => {
     return '';
   };
 
+  // Chart data (Entradas por dia do mês)
+  const chartData = useMemo(() => {
+    const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+    const data = Array.from({ length: daysInMonth }, (_, i) => ({
+      day: i + 1,
+      total: 0
+    }));
+
+    monthPayments.filter((p: any) => p.status === 'paid' && p.paid_at).forEach((p: any) => {
+      const day = new Date(p.paid_at).getDate();
+      if (day >= 1 && day <= daysInMonth) {
+        data[day - 1].total += Number(p.amount);
+      }
+    });
+
+    return data;
+  }, [monthPayments, viewMonth]);
+
   return (
     <AppLayout>
       <div className="px-4 pt-12 pb-6 max-w-lg mx-auto">
@@ -188,104 +207,150 @@ const Finance = () => {
         )}
 
         {/* Month navigation */}
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewMonth(prev => subMonths(prev, 1))}>
-            <ChevronLeft className="h-4 w-4" />
+        <div className="flex items-center justify-between mb-6 bg-muted/30 p-1.5 rounded-2xl glass border border-border/50">
+          <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-background" onClick={() => setViewMonth(prev => subMonths(prev, 1))}>
+            <ChevronLeft className="h-5 w-5" />
           </Button>
           <button onClick={() => setViewMonth(new Date())}
-            className="text-sm font-semibold px-3 py-1 rounded-lg hover:bg-muted transition-colors capitalize">
+            className="text-base font-bold px-4 py-2 rounded-xl hover:bg-background transition-colors capitalize flex-1 text-center">
             {format(viewMonth, 'MMMM yyyy', { locale: ptBR })}
           </button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewMonth(prev => addMonths(prev, 1))}>
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-background" onClick={() => setViewMonth(prev => addMonths(prev, 1))}>
+            <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
 
-        {/* Progress bar */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-xl p-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-muted-foreground">Recebido vs Previsto</p>
-            <p className="text-sm font-bold">{progressPct.toFixed(0)}%</p>
-          </div>
-          <Progress value={progressPct} className="h-2.5 mb-3" />
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <p className="text-sm font-bold text-primary">R$ {receivedTotal.toFixed(0)}</p>
-              <p className="text-[10px] text-muted-foreground">Recebido</p>
+        {/* Executive Summary Cards */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="glass rounded-2xl p-4 border border-emerald-500/20 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-40 transition-opacity">
+              <ArrowUpCircle className="h-12 w-12 text-emerald-500" />
             </div>
-            <div>
-              <p className="text-sm font-bold text-amber-400">R$ {pendingTotal.toFixed(0)}</p>
-              <p className="text-[10px] text-muted-foreground">Pendente</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold">R$ {expectedTotal.toFixed(0)}</p>
-              <p className="text-[10px] text-muted-foreground">Previsto</p>
-            </div>
-          </div>
-        </motion.div>
+            <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Entradas</p>
+            <p className="text-2xl font-black text-emerald-500 tracking-tight">R$ {receivedTotal.toFixed(0)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">No botão até agora</p>
+          </motion.div>
 
-        {/* Filter + bulk action */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+            className="glass rounded-2xl p-4 border border-border/50 relative overflow-hidden group">
+             <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+              <ArrowRightCircle className="h-12 w-12 text-foreground" />
+            </div>
+            <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">A Receber</p>
+            <p className="text-2xl font-black tracking-tight">R$ {pendingTotal.toFixed(0)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 font-medium">Previsão no mês: R$ {expectedTotal.toFixed(0)}</p>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="glass rounded-2xl p-4 border border-rose-500/20 col-span-2 flex items-center justify-between">
+            <div>
+               <p className="text-xs font-semibold text-rose-500/80 mb-0.5 uppercase tracking-wider flex items-center gap-1">
+                 <AlertTriangle className="h-3 w-3" /> Atrasados
+               </p>
+               <p className="text-xl font-bold text-rose-500">${monthPayments.filter((p:any) => p.status === 'overdue').reduce((sum:number, p:any) => sum + Number(p.amount), 0).toFixed(0)}</p>
+            </div>
+            {pendingPayments.length > 0 && (
+              <Button onClick={handleBulkWhatsApp} size="sm" className="rounded-xl bg-rose-500 hover:bg-rose-600 text-white shadow-md shadow-rose-500/20 h-9">
+                <Send className="h-3.5 w-3.5 mr-1.5" /> Cobrar Atrasos
+              </Button>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Daily Income Chart */}
+        {receivedTotal > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass rounded-2xl p-4 mb-6 border border-border/50">
+            <h3 className="text-xs font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Ritmo de Entradas</h3>
+            <div className="h-[120px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'currentColor', opacity: 0.5 }} dy={5} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'currentColor', opacity: 0.5 }} />
+                  <Tooltip 
+                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px', fontWeight: 'bold' }}
+                    formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Recebido']}
+                    labelFormatter={(label) => `Dia ${label}`}
+                  />
+                  <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.total > 0 ? '#10b981' : 'hsl(var(--muted))'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Filter */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-1">
+          <div className="flex gap-1 overflow-x-auto scrollbar-none pb-1" style={{ scrollbarWidth: 'none' }}>
             {['all', 'paid', 'pending', 'overdue'].map(s => (
               <button key={s} onClick={() => setFilterStatus(s)}
-                className={cn('px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                  filterStatus === s ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50')}>
-                {s === 'all' ? 'Todos' : STATUS_MAP[s].label}
+                className={cn('px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all whitespace-nowrap',
+                  filterStatus === s ? 'bg-foreground text-background shadow-md' : 'text-muted-foreground bg-muted/50 hover:bg-muted')}>
+                {s === 'all' ? 'Todos os Lançamentos' : STATUS_MAP[s].label}
               </button>
             ))}
           </div>
-          {pendingPayments.length > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary" onClick={handleBulkWhatsApp}>
-              <Send className="h-3.5 w-3.5" /> Cobrar
-            </Button>
-          )}
         </div>
 
         {/* Payments list */}
-        <div className="space-y-2">
+        <div className="space-y-3 pb-24">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Histórico de Lançamentos</h3>
+          
           {filtered.map((payment: any, i: number) => {
             const st = STATUS_MAP[payment.status || 'pending'];
             const Icon = st.icon;
             const highlight = getPaymentHighlight(payment);
             return (
               <motion.div key={payment.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }} className={cn('glass rounded-xl p-3', highlight)}>
+                transition={{ delay: i * 0.05 }} className={cn('glass rounded-2xl p-4 border border-border/50 transition-all hover:bg-muted/10', highlight)}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => togglePaid(payment)}
-                      className={cn('h-9 w-9 rounded-full flex items-center justify-center shrink-0', st.className)}>
-                      <Icon className="h-4 w-4" />
-                    </button>
+                  <div className="flex items-center gap-4">
+                    <div className={cn('h-12 w-12 rounded-full flex items-center justify-center shrink-0', st.className)}>
+                      <Icon className="h-5 w-5" />
+                    </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm">{payment.students?.name || 'Aluno'}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {payment.students?.payment_due_day ? `Vence dia ${payment.students.payment_due_day}` : payment.reference_month}
-                        {' · '}R$ {Number(payment.amount).toFixed(0)}
+                      <p className="font-bold text-base leading-tight">{payment.students?.name || 'Aluno Excluído'}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {payment.students?.payment_due_day ? `Vencimento: dia ${payment.students.payment_due_day}` : payment.reference_month}
                       </p>
+                      <p className="text-sm font-semibold mt-0.5">R$ {Number(payment.amount).toFixed(2)}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                       <button onClick={() => deletePayment.mutate(payment.id)} className="text-muted-foreground/50 hover:text-destructive transition-colors p-1.5 rounded-full hover:bg-destructive/10" title="Apagar Lançamento">
+                         <Trash2 className="h-4 w-4" />
+                       </button>
+                    </div>
+
                     {payment.status !== 'paid' ? (
-                      <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs font-semibold text-primary"
-                        onClick={() => togglePaid(payment)}>
-                        <Check className="h-3.5 w-3.5 mr-1" /> Receber
-                      </Button>
+                      <div className="flex items-center gap-2 mt-auto">
+                        {payment.students?.phone && (
+                          <button onClick={() => openWhatsApp(
+                            payment.students.phone,
+                            `Olá ${payment.students.name}, seu pagamento de R$ ${Number(payment.amount).toFixed(2)} referente a ${payment.reference_month} está ${payment.status === 'overdue' ? 'atrasado' : 'pendente'}. Podemos resolver?`
+                          )} className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 p-2 rounded-xl transition-all" title="Cobrar no WhatsApp">
+                            <MessageCircle className="h-4 w-4" />
+                          </button>
+                        )}
+                        <Button 
+                          onClick={() => togglePaid(payment)}
+                          className="h-9 px-4 rounded-xl gradient-primary text-white shadow-md shadow-primary/20 text-xs font-bold"
+                        >
+                          <Check className="h-4 w-4 mr-1.5" /> Dar Baixa
+                        </Button>
+                      </div>
                     ) : (
-                      <span className="text-xs font-medium text-primary/70">Pago</span>
+                       <div className="flex items-center gap-1 text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-xl text-xs font-bold mt-auto border border-emerald-500/20">
+                          <Check className="h-3.5 w-3.5" /> Concluído
+                       </div>
                     )}
-                    {payment.status !== 'paid' && payment.students?.phone && (
-                      <button onClick={() => openWhatsApp(
-                        payment.students.phone,
-                        `Olá ${payment.students.name}, seu pagamento de R$ ${Number(payment.amount).toFixed(2)} referente a ${payment.reference_month} está ${payment.status === 'overdue' ? 'atrasado' : 'pendente'}. Podemos resolver?`
-                      )} className="text-muted-foreground hover:text-primary">
-                        <MessageCircle className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    <button onClick={() => deletePayment.mutate(payment.id)}
-                      className="text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
                   </div>
                 </div>
               </motion.div>

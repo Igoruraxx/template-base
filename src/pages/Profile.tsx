@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { StudentLimitModal } from '@/components/StudentLimitModal';
 import { useToast } from '@/hooks/use-toast';
 import { LogOut, User, Key, Copy, Shield, MessageCircle, Crown, Clock, Bell, BellOff } from 'lucide-react';
@@ -35,6 +36,8 @@ const Profile = () => {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [summaryHour, setSummaryHour] = useState(4);
+  const [notify15MinBefore, setNotify15MinBefore] = useState(true);
+  const [notifyExactTime, setNotifyExactTime] = useState(true);
 
   useEffect(() => {
     isPushSubscribed().then(setPushEnabled);
@@ -254,18 +257,43 @@ const Profile = () => {
             </p>
 
             {pushEnabled && (
-              <div className="mt-3 pt-3 border-t border-border/30">
-                <Label className="text-xs text-muted-foreground">Resumo diário às:</Label>
-                <select
-                  value={summaryHour}
-                  onChange={(e) => handleHourChange(Number(e.target.value))}
-                  className="w-full mt-1 h-10 rounded-xl bg-muted/50 border border-border/50 px-3 text-sm"
-                >
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">Horário de Brasília</p>
+              <div className="mt-4 space-y-4 pt-4 border-t border-border/30">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <Label className="text-sm font-medium block">Lembrete de aula (15 min antes)</Label>
+                    <span className="text-xs text-muted-foreground">Notificar quando a aula estiver próxima (15 minutos antes)</span>
+                  </div>
+                  <Switch
+                    checked={notify15MinBefore}
+                    onCheckedChange={setNotify15MinBefore}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <Label className="text-sm font-medium block">Lembrete de aula (Hora exata)</Label>
+                    <span className="text-xs text-muted-foreground">Notificar no momento exato do início da aula</span>
+                  </div>
+                  <Switch
+                    checked={notifyExactTime}
+                    onCheckedChange={setNotifyExactTime}
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <Label className="text-sm font-medium block">Resumo diário da agenda</Label>
+                  <span className="text-xs text-muted-foreground mb-2 block">Escolha o horário para enviar a notificação com a agenda do dia todo</span>
+                  <select
+                    value={summaryHour}
+                    onChange={(e) => handleHourChange(Number(e.target.value))}
+                    className="w-full mt-1 h-10 rounded-xl bg-muted/50 border border-border/50 px-3 text-sm"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1 text-right">Horário de Brasília</p>
+                </div>
               </div>
             )}
           </div>
