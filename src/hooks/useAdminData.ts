@@ -5,6 +5,7 @@ export interface TrainerOverview {
   user_id: string;
   full_name: string;
   email: string;
+  role: string;
   plan: string;
   sub_status: string;
   active_students: number;

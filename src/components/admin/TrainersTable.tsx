@@ -116,7 +116,11 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                 <TableCell className="font-medium">{t.full_name || '—'}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">{t.email}</TableCell>
                 <TableCell>
-                  {t.plan === 'premium' ? (
+                  {t.role === 'admin' ? (
+                    <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 hover:bg-purple-500/30">
+                      Administrador
+                    </Badge>
+                  ) : t.plan === 'premium' ? (
                     <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30">
                       Assinante
                     </Badge>

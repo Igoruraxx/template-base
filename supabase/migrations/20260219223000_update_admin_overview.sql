@@ -1,6 +1,6 @@
 -- Incluir administradores na visualização do painel administrativo
 CREATE OR REPLACE FUNCTION public.admin_trainer_overview()
-RETURNS TABLE(user_id uuid, full_name text, email text, plan text, sub_status text, active_students bigint, created_at timestamp with time zone)
+RETURNS TABLE(user_id uuid, full_name text, email text, role text, plan text, sub_status text, active_students bigint, created_at timestamp with time zone)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
@@ -13,6 +13,7 @@ BEGIN
     p.user_id,
     p.full_name,
     u.email,
+    p.role,
     COALESCE(ts.plan, 'free'),
     COALESCE(ts.status, 'active'),
     COUNT(s.id) FILTER (WHERE s.status = 'active'),
@@ -22,7 +23,7 @@ BEGIN
   LEFT JOIN trainer_subscriptions ts ON ts.trainer_id = p.user_id
   LEFT JOIN students s ON s.trainer_id = p.user_id
   WHERE p.role IN ('trainer', 'admin') -- Alterado para incluir admins no dashboard
-  GROUP BY p.user_id, p.full_name, u.email, ts.plan, ts.status, p.created_at;
+  GROUP BY p.user_id, p.full_name, u.email, p.role, ts.plan, ts.status, p.created_at;
 END;
 $$;
 
