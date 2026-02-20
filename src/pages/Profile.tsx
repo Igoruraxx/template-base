@@ -16,11 +16,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Switch } from '@/components/ui/switch';
 import { StudentLimitModal } from '@/components/StudentLimitModal';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, User, Key, Copy, Shield, MessageCircle, Crown, Clock, Bell, BellOff } from 'lucide-react';
+import { LogOut, User, Key, Copy, Shield, MessageCircle, Crown, Clock, Bell, BellOff, Monitor, Sun, Moon } from 'lucide-react';
 import { subscribeToPush, unsubscribeFromPush, isPushSubscribed, updateDailySummaryHour } from '@/lib/pushNotifications';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { jsPDF } from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
+import { useTheme } from '@/components/theme-provider';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ const Profile = () => {
   const [summaryHour, setSummaryHour] = useState(4);
   const [notify15MinBefore, setNotify15MinBefore] = useState(true);
   const [notifyExactTime, setNotifyExactTime] = useState(true);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     isPushSubscribed().then(setPushEnabled);
@@ -234,6 +236,49 @@ const Profile = () => {
             </Button>
           </div>
 
+        </motion.div>
+
+        {/* Appearance */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
+          className="mt-4 space-y-3">
+          <h2 className="text-lg font-semibold">Aparência</h2>
+
+          <div className="glass rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Monitor className="h-4 w-4 text-primary" />
+              <p className="font-medium text-sm">Tema do Aplicativo</p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant={theme === 'light' ? 'default' : 'outline'}
+                className="w-full flex flex-col gap-1 h-auto py-3 rounded-xl border-border/50"
+                onClick={() => setTheme('light')}
+              >
+                <Sun className="h-4 w-4" />
+                <span className="text-xs">Claro</span>
+              </Button>
+              <Button
+                variant={theme === 'dark' ? 'default' : 'outline'}
+                className="w-full flex flex-col gap-1 h-auto py-3 rounded-xl border-border/50"
+                onClick={() => setTheme('dark')}
+              >
+                <Moon className="h-4 w-4" />
+                <span className="text-xs">Escuro</span>
+              </Button>
+              <Button
+                variant={theme === 'theme-mfit' ? 'default' : 'outline'}
+                className={`w-full flex flex-col gap-1 h-auto py-3 rounded-xl border-border/50 ${theme === 'theme-mfit' ? 'bg-[#FF5A00] text-white hover:bg-[#FF5A00]/90 border-transparent' : ''}`}
+                onClick={() => setTheme('theme-mfit')}
+              >
+                <div className="h-4 w-4 rounded-full bg-gradient-to-tr from-[#FF5A00] to-orange-400" />
+                <span className="text-xs">MFIT</span>
+              </Button>
+            </div>
+            {theme === 'system' && (
+              <p className="text-xs text-muted-foreground mt-3 text-center">Usando tema do sistema atualmente</p>
+            )}
+          </div>
         </motion.div>
 
         {/* Notifications */}

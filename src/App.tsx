@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
+import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Students from "./pages/Students";
@@ -26,7 +27,8 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
@@ -52,6 +54,7 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
