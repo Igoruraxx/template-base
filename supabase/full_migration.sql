@@ -1,5 +1,5 @@
 -- =============================================
--- SCRIPT COMPLETO DE MIGRAÇÃO - FitPro Agenda
+-- SCRIPT COMPLETO DE MIGRAÇÃO - FITPRO AGENDA
 -- Idempotente: pode ser rodado múltiplas vezes
 -- Execute no SQL Editor do novo projeto Supabase
 -- =============================================

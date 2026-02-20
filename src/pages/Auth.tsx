@@ -63,9 +63,9 @@ const Auth = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
         >
-          <img src={logo} alt="IFT Trainer" className="h-16 w-16 rounded-2xl mb-4 shadow-lg shadow-primary/25" />
+          <img src={logo} alt="FITPRO AGENDA" className="h-16 w-16 rounded-2xl mb-4 shadow-lg shadow-primary/25" />
           <h1 className="text-3xl font-bold tracking-tight">
-            FitPRO <span className="text-gradient">AGENDA </span>
+            FITPRO <span className="text-gradient">AGENDA </span>
           </h1>
           <p className="text-muted-foreground text-sm mt-1">Gestão inteligente para personal trainers</p>
         </motion.div>

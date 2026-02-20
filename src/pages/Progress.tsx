@@ -8,11 +8,12 @@ import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, Upload, ArrowLeftRight, ClipboardList, FileDown } from 'lucide-react';
+import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, Upload, ArrowLeftRight, ClipboardList, FileDown, Search, User } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -38,6 +39,8 @@ const Progress = () => {
   const { toast } = useToast();
 
   const [selectedStudent, setSelectedStudent] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [tab, setTab] = useState('photos');
   const [multiPhotoOpen, setMultiPhotoOpen] = useState(false);
   const [bioDialog, setBioDialog] = useState(false);
@@ -143,22 +146,88 @@ const Progress = () => {
           <p className="text-muted-foreground text-sm mt-0.5">Fotos e bioimpedância</p>
         </motion.div>
 
-        <div className="mt-4 mb-4">
-          <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-            <SelectTrigger className="bg-muted/50 border-border/50 rounded-xl h-11">
-              <SelectValue placeholder="Selecione um aluno" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableStudents.map(s => (
-                <SelectItem key={s.id} value={s.id}>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color || '#10b981' }} />
-                    {s.name}
+        <div className="mt-4 mb-6">
+          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {/* Botão de Busca / Drawer Trigger */}
+            <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+              <DrawerTrigger asChild>
+                <div className="flex flex-col items-center gap-2 cursor-pointer snap-start shrink-0 mt-1">
+                  <div className="h-14 w-14 rounded-full bg-muted border-2 border-border flex items-center justify-center">
+                    <Search className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <span className="text-[11px] font-medium text-muted-foreground">Buscar</span>
+                </div>
+              </DrawerTrigger>
+              <DrawerContent className="h-[80vh]">
+                <DrawerHeader className="border-b pb-4">
+                  <DrawerTitle>Selecionar Aluno</DrawerTitle>
+                  <div className="relative mt-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Buscar por nome..." 
+                      className="pl-9 bg-muted/50 rounded-xl"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </DrawerHeader>
+                <div className="overflow-y-auto p-4 flex-1">
+                  <div className="space-y-2">
+                    {availableStudents
+                      .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map(s => (
+                      <div 
+                        key={s.id} 
+                        onClick={() => { setSelectedStudent(s.id); setDrawerOpen(false); }}
+                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <Avatar className="h-10 w-10 border" style={{ borderColor: s.color || '#10b981' }}>
+                          <AvatarImage src={s.avatar_url || undefined} />
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {s.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 text-left">
+                          <p className="font-medium text-sm">{s.name}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {availableStudents.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Nenhum aluno encontrado
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </DrawerContent>
+            </Drawer>
+
+            {/* Lista horizontal dos alunos */}
+            {availableStudents.map(s => {
+              const isSelected = selectedStudent === s.id;
+              const firstName = s.name.split(' ')[0];
+              
+              return (
+                <div 
+                  key={s.id} 
+                  onClick={() => setSelectedStudent(s.id)}
+                  className={`flex flex-col items-center gap-2 cursor-pointer snap-start shrink-0 transition-opacity mt-1 ${isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
+                >
+                  <div className={`rounded-full p-[2px] transition-colors ${isSelected ? 'bg-gradient-to-tr from-primary to-emerald-400' : 'bg-transparent'}`}>
+                    <Avatar className="h-14 w-14 border-2 border-background">
+                      <AvatarImage src={s.avatar_url || undefined} className="object-cover" />
+                      <AvatarFallback className="bg-muted text-muted-foreground text-lg">
+                        {firstName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <span className={`text-[11px] font-medium max-w-[64px] truncate ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {firstName}
                   </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {selectedStudent ? (
@@ -304,8 +373,9 @@ const Progress = () => {
           </Tabs>
         ) : (
           <div className="glass rounded-2xl p-8 flex flex-col items-center text-center mt-4">
-            <Camera className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">Selecione um aluno para ver o progresso</p>
+            <User className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+            <p className="text-base font-medium">Nenhum aluno selecionado</p>
+            <p className="text-sm text-muted-foreground mt-1">Selecione um aluno na lista acima para visualizar seu progresso</p>
           </div>
         )}
 

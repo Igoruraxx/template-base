@@ -91,7 +91,7 @@ const StudentPortal = () => {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <motion.div className="w-full max-w-sm" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex flex-col items-center mb-8">
-            <img src={logo} alt="IFT Trainer" className="h-14 w-14 rounded-2xl mb-4 shadow-lg shadow-primary/25" />
+            <img src={logo} alt="FITPRO AGENDA" className="h-14 w-14 rounded-2xl mb-4 shadow-lg shadow-primary/25" />
             <h1 className="text-2xl font-bold">Portal do Aluno</h1>
             <p className="text-sm text-muted-foreground mt-1">Acesse seus dados de treino</p>
           </div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fittrainer-v1';
+const CACHE_NAME = 'fitpro-agenda-v1';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -17,7 +17,7 @@ self.addEventListener('fetch', (event) => {
 
 // Push notification handler
 self.addEventListener('push', (event) => {
-  let data = { title: 'FitPro Agenda', body: 'Nova notificação', tag: 'default' };
+  let data = { title: 'FITPRO AGENDA', body: 'Nova notificação', tag: 'default' };
   
   try {
     if (event.data) {

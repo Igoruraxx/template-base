@@ -14,7 +14,7 @@ export const LoadingScreen = () => {
           animate={{ rotate: [0, 10, -10, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
         >
-          <img src={logo} alt="IFT Trainer" className="h-12 w-12 rounded-xl" />
+          <img src={logo} alt="FITPRO AGENDA" className="h-12 w-12 rounded-xl" />
         </motion.div>
         <motion.div
           className="h-1 w-32 rounded-full bg-muted overflow-hidden"

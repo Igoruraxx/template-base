@@ -116,7 +116,7 @@ const Profile = () => {
     let y = 20;
 
     doc.setFontSize(20);
-    doc.text('IFT Trainer — Relatório do Aluno', 20, y);
+    doc.text('FITPRO AGENDA — Relatório do Aluno', 20, y);
     y += 15;
 
     doc.setFontSize(14);
