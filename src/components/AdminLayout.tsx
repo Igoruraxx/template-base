@@ -73,27 +73,52 @@ export const AdminLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </aside>
 
-      {/* Mobile top bar */}
-      <div className="flex flex-col flex-1">
-        <header className="md:hidden flex items-center gap-2 p-4 border-b border-border bg-card overflow-x-auto">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.url}
-              to={item.url}
-              end={item.url === '/admin'}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-muted-foreground whitespace-nowrap hover:bg-accent/10"
-              activeClassName="bg-primary/10 text-primary font-medium"
-            >
-              <item.icon className="h-4 w-4" />
-              <span>{item.title}</span>
-            </NavLink>
-          ))}
+      {/* Main Content Area */}
+      <div className="flex flex-col flex-1 pb-16 md:pb-0">
+        {/* Mobile Header */}
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
+          <button 
+            onClick={() => navigate('/admin')}
+            className="text-left font-bold font-heading text-lg text-gradient"
+          >
+            FitAdmin
+          </button>
+          
+          <Avatar className="h-8 w-8 border border-border">
+            <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.email}`} />
+            <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+          </Avatar>
         </header>
 
         <main className="flex-1 p-4 md:p-8 overflow-auto">
           {children}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card/90 backdrop-blur-lg border-t border-border flex items-center justify-around px-2 z-50">
+        {menuItems.map((item) => (
+          <NavLink
+            key={item.url}
+            to={item.url}
+            end={item.url === '/admin'}
+            className="flex flex-col items-center justify-center flex-1 gap-1 text-muted-foreground transition-all active:scale-95 py-2"
+            activeClassName="text-primary"
+          >
+            <item.icon className="h-5 w-5" />
+            <span className="text-[10px] font-medium tracking-tight">
+              {item.title}
+            </span>
+          </NavLink>
+        ))}
+        <button
+          onClick={handleSignOut}
+          className="flex flex-col items-center justify-center flex-1 gap-1 text-muted-foreground active:scale-95"
+        >
+          <LogOut className="h-5 w-5" />
+          <span className="text-[10px] font-medium tracking-tight">Sair</span>
+        </button>
+      </nav>
     </div>
   );
 };
