@@ -22,7 +22,7 @@ export const useAdminData = () => {
       const { data, error } = await supabase.rpc('admin_trainer_overview');
       if (error) {
         console.error('CRITICAL: Erro ao carregar gestão de usuários:', error);
-        toast.error('Erro ao conectar com o banco de dados administrativo');
+        toast.error(`Erro: ${error.message || 'Falha ao conectar administrativo'}`);
         throw error;
       }
       return (data as TrainerOverview[]) || [];
