@@ -26,19 +26,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchProfile = async (userId: string) => {
       setLoading(true);
       try {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+        const [profileResult, adminCheckResult] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single(),
+          supabase.rpc('has_role', {
+            _user_id: userId,
+            _role: 'admin'
+          })
+        ]);
+
+        const profileData = profileResult.data;
+        const adminCheck = adminCheckResult.data;
+
         setProfile(profileData);
-
-        // Check admin role via RPC for consistency with AdminRoute
-        const { data: adminCheck } = await supabase.rpc('has_role', {
-          _user_id: userId,
-          _role: 'admin'
-        });
-
         // Robust but clean check
         setIsAdmin(!!adminCheck || profileData?.role === 'admin');
       } catch (error) {

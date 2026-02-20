@@ -29,4 +29,16 @@ export default defineConfig(({ mode }) => ({
     "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(EXTERNAL_SUPABASE_ANON_KEY),
     "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify("hfyijlmdejjcdotwccrp"),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
+          ui: ['framer-motion', '@radix-ui/react-dialog', 'lucide-react'],
+          charts: ['recharts'],
+          pdf: ['jspdf', 'html2canvas'],
+        }
+      }
+    }
+  }
 }));

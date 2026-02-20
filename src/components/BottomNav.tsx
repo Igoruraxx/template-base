@@ -12,9 +12,9 @@ export const BottomNav = () => {
   if (loading || !user) return null;
 
   const navItems = [
+    { icon: Calendar, label: 'Agenda', path: '/' },
     { icon: Users, label: 'Alunos', path: '/students' },
     { icon: Camera, label: 'Progresso', path: '/progress' },
-    { icon: Calendar, label: 'Agenda', path: '/' },
     { icon: DollarSign, label: 'Financeiro', path: '/finance' },
     { icon: User, label: 'Perfil', path: '/profile' },
   ];
