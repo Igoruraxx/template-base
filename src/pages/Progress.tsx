@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, Upload, ArrowLeftRight, ClipboardList, FileDown, Search, User } from 'lucide-react';
+import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, Upload, ArrowLeftRight, ClipboardList, FileDown, Search, User, ArrowLeft, ChevronRight, Activity, PlusCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -141,241 +141,295 @@ const Progress = () => {
   return (
     <AppLayout>
       <div className="px-4 pt-12 pb-6 max-w-lg mx-auto">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl font-bold tracking-tight">Progresso</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Fotos e bioimpedância</p>
-        </motion.div>
+        {!selectedStudent && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+            <h1 className="text-2xl font-bold tracking-tight">Progresso</h1>
+            <p className="text-muted-foreground text-sm mt-0.5 mb-6">Selecione um aluno para acompanhar avaliações</p>
+          </motion.div>
+        )}
 
-        <div className="mt-4 mb-6">
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {/* Botão de Busca / Drawer Trigger */}
-            <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-              <DrawerTrigger asChild>
-                <div className="flex flex-col items-center gap-2 cursor-pointer snap-start shrink-0 mt-1">
-                  <div className="h-14 w-14 rounded-full bg-muted border-2 border-border flex items-center justify-center">
-                    <Search className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <span className="text-[11px] font-medium text-muted-foreground">Buscar</span>
-                </div>
-              </DrawerTrigger>
-              <DrawerContent className="h-[80vh]">
-                <DrawerHeader className="border-b pb-4">
-                  <DrawerTitle>Selecionar Aluno</DrawerTitle>
-                  <div className="relative mt-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Buscar por nome..." 
-                      className="pl-9 bg-muted/50 rounded-xl"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                </DrawerHeader>
-                <div className="overflow-y-auto p-4 flex-1">
-                  <div className="space-y-2">
-                    {availableStudents
-                      .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                      .map(s => (
-                      <div 
-                        key={s.id} 
-                        onClick={() => { setSelectedStudent(s.id); setDrawerOpen(false); }}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors"
-                      >
-                        <Avatar className="h-10 w-10 border" style={{ borderColor: s.color || '#10b981' }}>
-                          <AvatarImage src={s.avatar_url || undefined} />
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {s.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 text-left">
-                          <p className="font-medium text-sm">{s.name}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {availableStudents.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        Nenhum aluno encontrado
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </DrawerContent>
-            </Drawer>
-
-            {/* Lista horizontal dos alunos */}
-            {availableStudents.map(s => {
-              const isSelected = selectedStudent === s.id;
-              const firstName = s.name.split(' ')[0];
-              
-              return (
-                <div 
-                  key={s.id} 
-                  onClick={() => setSelectedStudent(s.id)}
-                  className={`flex flex-col items-center gap-2 cursor-pointer snap-start shrink-0 transition-opacity mt-1 ${isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
-                >
-                  <div className={`rounded-full p-[2px] transition-colors ${isSelected ? 'bg-gradient-to-tr from-primary to-emerald-400' : 'bg-transparent'}`}>
-                    <Avatar className="h-14 w-14 border-2 border-background">
-                      <AvatarImage src={s.avatar_url || undefined} className="object-cover" />
-                      <AvatarFallback className="bg-muted text-muted-foreground text-lg">
-                        {firstName.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                  <span className={`text-[11px] font-medium max-w-[64px] truncate ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {firstName}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {selectedStudent ? (
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="w-full bg-muted rounded-xl p-1 mb-4">
-              <TabsTrigger value="photos" className="flex-1 rounded-lg text-xs">
-                <Camera className="h-3.5 w-3.5 mr-1" /> Fotos
-              </TabsTrigger>
-              <TabsTrigger value="compare" className="flex-1 rounded-lg text-xs">
-                <ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Comparar
-              </TabsTrigger>
-              <TabsTrigger value="bio" className="flex-1 rounded-lg text-xs">
-                <TrendingUp className="h-3.5 w-3.5 mr-1" /> Bio
-              </TabsTrigger>
-              <TabsTrigger value="assessment" className="flex-1 rounded-lg text-xs">
-                <ClipboardList className="h-3.5 w-3.5 mr-1" /> Avaliação
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="photos">
-              <div className="flex justify-end mb-3">
-                <Button onClick={() => setMultiPhotoOpen(true)} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
-                  <Camera className="h-4 w-4 mr-1" /> Nova medição visual
-                </Button>
-              </div>
-
-              {photos && photos.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {photos.map(photo => (
-                    <motion.div key={photo.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      className="relative group rounded-xl overflow-hidden aspect-[3/4] cursor-pointer"
-                      onClick={async () => { const url = await getSignedUrl('progress-photos', photo.photo_url); setLightboxUrl(url); }}>
-                      <SignedImage bucket="progress-photos" storagePath={photo.photo_url} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="absolute bottom-2 left-2 right-2">
-                          <p className="text-white text-[10px]">
-                            {PHOTO_TYPES.find(t => t.value === photo.photo_type)?.label} • {format(parseISO(photo.taken_at), 'dd/MM/yy')}
-                          </p>
-                          {photo.notes && <p className="text-white/70 text-[9px] mt-0.5 truncate">{photo.notes}</p>}
-                        </div>
-                        <button onClick={(e) => { e.stopPropagation(); deletePhoto.mutate(photo.id); }}
-                          className="absolute top-2 right-2 text-white/80 hover:text-white">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <div className="glass rounded-2xl p-8 flex flex-col items-center text-center">
-                  <Image className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">Nenhuma foto de progresso</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="compare">
-              <BeforeAfterComparison
-                photos={photos || []}
-                onPhotoClick={(url) => setLightboxUrl(url)}
-              />
-            </TabsContent>
-
-            <TabsContent value="bio">
-              <div className="flex justify-end gap-2 mb-3">
-                <Button onClick={() => { resetBioForm(); setOcrDialog(true); }} size="sm" variant="outline" className="rounded-xl">
-                  <Upload className="h-4 w-4 mr-1" /> Por arquivo
-                </Button>
-                <Button onClick={() => { resetBioForm(); setBioDialog(true); }} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
-                  <Plus className="h-4 w-4 mr-1" /> Manual
-                </Button>
-              </div>
-
-              {chartData.length > 1 && (
-                <div className="glass rounded-2xl p-4 mb-4">
-                  <h3 className="text-sm font-semibold mb-3">Evolução</h3>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 10 }} />
-                      <Line type="monotone" dataKey="Peso (kg)" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="Gordura (%)" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="Massa Musc. (kg)" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                {bioRecords?.slice().reverse().map(record => (
-                  <motion.div key={record.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="glass rounded-xl p-3">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        {format(parseISO(record.measured_at), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                      </p>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            if (bioRecords) {
-                              const studentName = availableStudents.find(s => s.id === selectedStudent)?.name || 'Aluno';
-                              generateBioimpedancePdf(bioRecords, studentName, photos || undefined);
-                            }
-                          }}
-                          className="text-muted-foreground hover:text-primary"
-                          title="Baixar PDF"
-                        >
-                          <FileDown className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => deleteBio.mutate(record.id)} className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+        {!selectedStudent ? (
+          <div className="space-y-4">
+             <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar aluno..."
+                  className="pl-9 bg-muted/50 rounded-xl border-border/50 h-11"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+             </div>
+             <div className="space-y-2 pb-20">
+                 {availableStudents
+                  .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map(s => (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    key={s.id}
+                    onClick={() => setSelectedStudent(s.id)}
+                    className="flex justify-between items-center p-3.5 glass rounded-xl cursor-pointer active:scale-95 transition-all border border-border/50 hover:border-primary/30"
+                  >
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-12 w-12 border" style={{ borderColor: s.color || '#10b981' }}>
+                        <AvatarImage src={s.avatar_url || undefined} className="object-cover" />
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {s.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">{s.name}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Activity className="h-3 w-3" />
+                          Ver resultados
+                        </p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 mt-2">
-                      {record.weight && <div><p className="text-lg font-bold">{Number(record.weight).toFixed(1)}</p><p className="text-[10px] text-muted-foreground">Peso (kg)</p></div>}
-                      {record.body_fat_pct && <div><p className="text-lg font-bold">{Number(record.body_fat_pct).toFixed(1)}</p><p className="text-[10px] text-muted-foreground">Gordura (%)</p></div>}
-                      {record.muscle_mass && <div><p className="text-lg font-bold">{Number(record.muscle_mass).toFixed(1)}</p><p className="text-[10px] text-muted-foreground">M. Muscular</p></div>}
+                    <div className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center">
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    {record.report_url && (
-                      <button onClick={async () => { const url = await getSignedUrl('bioimpedance-reports', record.report_url); window.open(url, '_blank'); }}
-                        className="flex items-center gap-1 text-xs text-primary mt-2 hover:underline">
-                        <FileText className="h-3 w-3" /> Ver laudo
-                      </button>
-                    )}
                   </motion.div>
-                ))}
-                {(!bioRecords || bioRecords.length === 0) && (
-                  <div className="glass rounded-2xl p-8 flex flex-col items-center text-center">
-                    <TrendingUp className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground">Nenhum registro de bioimpedância</p>
+                 ))}
+                 {availableStudents.length > 0 && availableStudents.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                   <p className="text-center text-sm text-muted-foreground py-8">Nenhum aluno encontrado.</p>
+                 )}
+                 {availableStudents.length === 0 && (
+                   <div className="text-center py-12">
+                     <User className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-50" />
+                     <p className="font-medium text-muted-foreground">Você ainda não tem alunos ativos.</p>
+                   </div>
+                 )}
+             </div>
+          </div>
+        ) : (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            <button
+               onClick={() => setSelectedStudent('')}
+               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
+            >
+               <ArrowLeft className="h-4 w-4" />
+               Voltar
+            </button>
+            
+            <div className="flex items-center gap-4 mb-6">
+              <Avatar className="h-16 w-16 border-2" style={{ borderColor: availableStudents.find(s => s.id === selectedStudent)?.color || '#10b981' }}>
+                <AvatarImage src={availableStudents.find(s => s.id === selectedStudent)?.avatar_url || undefined} className="object-cover" />
+                <AvatarFallback className="bg-primary/10 text-primary text-xl">
+                  {availableStudents.find(s => s.id === selectedStudent)?.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h1 className="text-xl font-bold">{availableStudents.find(s => s.id === selectedStudent)?.name}</h1>
+                <p className="text-sm text-muted-foreground">Dashboard de Progresso</p>
+              </div>
+            </div>
+
+            <Tabs value={tab} onValueChange={setTab}>
+              <TabsList className="w-full bg-muted rounded-xl p-1 mb-4 flex">
+                <TabsTrigger value="photos" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Camera className="h-3.5 w-3.5 mr-1" /> Fotos
+                </TabsTrigger>
+                <TabsTrigger value="compare" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Comparar
+                </TabsTrigger>
+                <TabsTrigger value="bio" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <TrendingUp className="h-3.5 w-3.5 mr-1" /> Bio
+                </TabsTrigger>
+                <TabsTrigger value="assessment" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <ClipboardList className="h-3.5 w-3.5 mr-1" /> Avaliação
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="photos" className="mt-0">
+                {photos && photos.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2 pb-24">
+                    {photos.map(photo => (
+                      <motion.div key={photo.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                        className="relative group rounded-xl overflow-hidden aspect-[3/4] cursor-pointer shadow-sm border border-border/30"
+                        onClick={async () => { const url = await getSignedUrl('progress-photos', photo.photo_url); setLightboxUrl(url); }}>
+                        <SignedImage bucket="progress-photos" storagePath={photo.photo_url} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
+                          <div className="absolute bottom-2 left-2 right-2">
+                            <p className="text-white font-medium text-[10px] bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm inline-block">
+                              {format(parseISO(photo.taken_at), 'dd/MMM', { locale: ptBR })}
+                            </p>
+                            {photo.notes && <p className="text-white/80 text-[9px] mt-1 truncate">{photo.notes}</p>}
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); deletePhoto.mutate(photo.id); }}
+                            className="absolute top-2 right-2 text-white/80 hover:text-white bg-black/40 p-1 rounded-full backdrop-blur-sm">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="glass rounded-2xl p-8 flex flex-col items-center text-center mt-4">
+                    <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                      <Image className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-base font-medium">Nenhuma foto ainda</p>
+                    <p className="text-sm text-muted-foreground mt-1 mb-4">Acompanhe a evolução tirando a primeira foto.</p>
+                    <Button onClick={() => setMultiPhotoOpen(true)} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
+                       Tirar foto agora
+                    </Button>
                   </div>
                 )}
-              </div>
-            </TabsContent>
+                
+                {photos && photos.length > 0 && (
+                  <div className="fixed bottom-20 right-4 z-40">
+                    <Button 
+                      onClick={() => setMultiPhotoOpen(true)} 
+                      size="icon" 
+                      className="h-14 w-14 rounded-full gradient-primary shadow-lg shadow-primary/30 text-white"
+                    >
+                      <Plus className="h-6 w-6" />
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
 
-            <TabsContent value="assessment">
-              <AssessmentTab studentId={selectedStudent} studentName={availableStudents.find(s => s.id === selectedStudent)?.name} />
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <div className="glass rounded-2xl p-8 flex flex-col items-center text-center mt-4">
-            <User className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
-            <p className="text-base font-medium">Nenhum aluno selecionado</p>
-            <p className="text-sm text-muted-foreground mt-1">Selecione um aluno na lista acima para visualizar seu progresso</p>
+              <TabsContent value="compare" className="mt-0">
+                <BeforeAfterComparison
+                  photos={photos || []}
+                  onPhotoClick={(url) => setLightboxUrl(url)}
+                />
+              </TabsContent>
+
+              <TabsContent value="bio" className="mt-0">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-sm">Histórico Corporal</h3>
+                  <div className="flex gap-2">
+                    <Button onClick={() => { resetBioForm(); setOcrDialog(true); }} size="icon" variant="outline" className="rounded-full h-9 w-9">
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                    <Button onClick={() => { resetBioForm(); setBioDialog(true); }} size="sm" className="rounded-full gradient-primary text-primary-foreground">
+                      <Plus className="h-4 w-4 mr-1" /> Manual
+                    </Button>
+                  </div>
+                </div>
+
+                {chartData.length > 1 && (
+                  <div className="glass rounded-2xl p-4 mb-5 border border-border/50 shadow-sm">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} dy={10} />
+                        <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', fontSize: 12, boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                        <Legend wrapperStyle={{ fontSize: 10, paddingTop: '10px' }} iconType="circle" />
+                        <Line type="monotone" dataKey="Peso (kg)" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="Gordura (%)" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="Massa Musc. (kg)" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                <div className="space-y-3 pb-20">
+                  {bioRecords?.slice().reverse().map((record, index, arr) => {
+                    // Cálculo simples para ver se subiu ou desceu (comparando com o anterior histórico, que no array invertido é index + 1)
+                    const prevRecord = arr[index + 1];
+                    const weightDiff = prevRecord && record.weight && prevRecord.weight ? (Number(record.weight) - Number(prevRecord.weight)).toFixed(1) : null;
+                    const fatDiff = prevRecord && record.body_fat_pct && prevRecord.body_fat_pct ? (Number(record.body_fat_pct) - Number(prevRecord.body_fat_pct)).toFixed(1) : null;
+                    const muscleDiff = prevRecord && record.muscle_mass && prevRecord.muscle_mass ? (Number(record.muscle_mass) - Number(prevRecord.muscle_mass)).toFixed(1) : null;
+
+                    return (
+                    <motion.div key={record.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="glass rounded-xl p-4 border border-border/50">
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="flex items-center gap-2">
+                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                             <Activity className="h-4 w-4 text-primary" />
+                           </div>
+                           <p className="text-sm font-semibold">
+                             {format(parseISO(record.measured_at), "dd MMM yyyy", { locale: ptBR })}
+                           </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              if (bioRecords) {
+                                const studentName = availableStudents.find(s => s.id === selectedStudent)?.name || 'Aluno';
+                                generateBioimpedancePdf(bioRecords, studentName, photos || undefined);
+                              }
+                            }}
+                            className="text-muted-foreground hover:text-primary transition-colors p-1"
+                            title="Baixar Relatório Completo"
+                          >
+                            <FileDown className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => deleteBio.mutate(record.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        {record.weight && (
+                           <div className="bg-muted/30 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Peso</p>
+                              <p className="text-lg font-bold mt-0.5">{Number(record.weight).toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">kg</span></p>
+                              {weightDiff && Number(weightDiff) !== 0 && (
+                                <p className={`text-[10px] mt-0.5 font-medium ${Number(weightDiff) > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                  {Number(weightDiff) > 0 ? '↑' : '↓'} {Math.abs(Number(weightDiff))}
+                                </p>
+                              )}
+                           </div>
+                        )}
+                        {record.body_fat_pct && (
+                           <div className="bg-muted/30 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gordura</p>
+                              <p className="text-lg font-bold mt-0.5">{Number(record.body_fat_pct).toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">%</span></p>
+                              {fatDiff && Number(fatDiff) !== 0 && (
+                                <p className={`text-[10px] mt-0.5 font-medium ${Number(fatDiff) > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                  {Number(fatDiff) > 0 ? '↑' : '↓'} {Math.abs(Number(fatDiff))}
+                                </p>
+                              )}
+                           </div>
+                        )}
+                        {record.muscle_mass && (
+                           <div className="bg-muted/30 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Músculo</p>
+                              <p className="text-lg font-bold mt-0.5">{Number(record.muscle_mass).toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">kg</span></p>
+                              {muscleDiff && Number(muscleDiff) !== 0 && (
+                                <p className={`text-[10px] mt-0.5 font-medium ${Number(muscleDiff) > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                  {Number(muscleDiff) > 0 ? '↑' : '↓'} {Math.abs(Number(muscleDiff))}
+                                </p>
+                              )}
+                           </div>
+                        )}
+                      </div>
+                      
+                      {record.report_url && (
+                        <div className="mt-3 pt-3 border-t border-border/50">
+                           <button onClick={async () => { const url = await getSignedUrl('bioimpedance-reports', record.report_url); window.open(url, '_blank'); }}
+                             className="flex items-center justify-center w-full gap-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/5 py-2 rounded-lg">
+                             <FileText className="h-3.5 w-3.5" /> Ver PDF Original do Exame
+                           </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  )})}
+                  {(!bioRecords || bioRecords.length === 0) && (
+                    <div className="glass rounded-2xl p-8 flex flex-col items-center text-center mt-4">
+                      <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                         <TrendingUp className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-base font-medium">Sem dados corporais</p>
+                      <p className="text-sm text-muted-foreground mt-1 mb-4">Mantenha o histórico do aluno atualizado.</p>
+                      <Button onClick={() => setBioDialog(true)} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
+                         Lançar primeira avaliação
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="assessment" className="mt-0">
+                <AssessmentTab studentId={selectedStudent} studentName={availableStudents.find(s => s.id === selectedStudent)?.name} />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
 
