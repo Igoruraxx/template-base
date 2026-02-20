@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Switch } from '@/components/ui/switch';
 import { StudentLimitModal } from '@/components/StudentLimitModal';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, User, Key, Copy, Shield, MessageCircle, Crown, Clock, Bell, BellOff, Monitor, Sun, Moon } from 'lucide-react';
+import { LogOut, User, Key, Copy, Shield, MessageCircle, Crown, Clock, Bell, BellOff, Monitor, Sun, Moon, Palette } from 'lucide-react';
 import { subscribeToPush, unsubscribeFromPush, isPushSubscribed, updateDailySummaryHour } from '@/lib/pushNotifications';
 import { openWhatsApp } from '@/lib/whatsapp';
 import { jsPDF } from 'jspdf';
@@ -40,6 +40,19 @@ const Profile = () => {
   const [notify15MinBefore, setNotify15MinBefore] = useState(true);
   const [notifyExactTime, setNotifyExactTime] = useState(true);
   const { theme, setTheme } = useTheme();
+
+  const cycleTheme = () => {
+    const themes: ("light" | "dark" | "theme-mfit")[] = ["light", "dark", "theme-mfit"];
+    const currentIndex = themes.indexOf(theme as any);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    setTheme(themes[nextIndex]);
+    
+    const names = { light: 'Claro', dark: 'Escuro', 'theme-mfit': 'MFIT' };
+    toast({ 
+      title: `Tema: ${names[themes[nextIndex]]}`,
+      duration: 1500
+    });
+  };
 
   useEffect(() => {
     isPushSubscribed().then(setPushEnabled);
@@ -170,6 +183,23 @@ const Profile = () => {
           <p className="text-muted-foreground text-sm mt-0.5">Configurações e ferramentas</p>
         </motion.div>
 
+        {/* Floating Quick Theme Toggle */}
+        <motion.div 
+          className="fixed top-20 right-4 z-50 md:hidden"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.5 }}
+        >
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="rounded-full h-12 w-12 glass border-primary/20 shadow-lg text-primary"
+            onClick={cycleTheme}
+          >
+            <Palette className="h-5 w-5" />
+          </Button>
+        </motion.div>
+
         {/* Profile card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="glass rounded-2xl p-6 mt-6">
@@ -244,10 +274,21 @@ const Profile = () => {
           <h2 className="text-lg font-semibold">Aparência</h2>
 
           <div className="glass rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
               <Monitor className="h-4 w-4 text-primary" />
               <p className="font-medium text-sm">Tema do Aplicativo</p>
             </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 px-2 text-xs text-primary hover:bg-primary/10"
+              onClick={cycleTheme}
+            >
+              <Palette className="h-3.5 w-3.5 mr-1" />
+              Ciclar
+            </Button>
+          </div>
             
             <div className="grid grid-cols-3 gap-2">
               <Button
