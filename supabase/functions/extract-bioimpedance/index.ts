@@ -53,7 +53,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           {
             role: "system",
@@ -83,7 +83,30 @@ Do NOT include any text outside the JSON. Always use numbers, not strings.`,
             ],
           },
         ],
-        response_format: { type: "json_object" },
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "extract_bioimpedance",
+              description: "Extract bioimpedance values from scale image",
+              parameters: {
+                type: "object",
+                properties: {
+                  weight: { type: ["number", "null"], description: "Weight in kg" },
+                  body_fat_pct: { type: ["number", "null"], description: "Body fat percentage" },
+                  muscle_mass: { type: ["number", "null"], description: "Muscle mass in kg" },
+                  visceral_fat: { type: ["number", "null"], description: "Visceral fat level" },
+                  bmr: { type: ["number", "null"], description: "BMR in kcal" },
+                  body_water_pct: { type: ["number", "null"], description: "Body water percentage" },
+                  bone_mass: { type: ["number", "null"], description: "Bone mass in kg" },
+                },
+                required: ["weight", "body_fat_pct", "muscle_mass", "visceral_fat", "bmr", "body_water_pct", "bone_mass"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "extract_bioimpedance" } },
       }),
     });
 
@@ -104,14 +127,20 @@ Do NOT include any text outside the JSON. Always use numbers, not strings.`,
     }
 
     const result = await response.json();
-    const content = result.choices?.[0]?.message?.content || "";
+    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
     
     let extracted;
-    try {
+    if (toolCall) {
+      extracted = JSON.parse(toolCall.function.arguments);
+    } else {
+      // Fallback: try to parse from content
+      const content = result.choices?.[0]?.message?.content || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      extracted = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(content);
-    } catch {
-      extracted = { weight: null, body_fat_pct: null, muscle_mass: null, visceral_fat: null, bmr: null, body_water_pct: null, bone_mass: null };
+      if (jsonMatch) {
+        extracted = JSON.parse(jsonMatch[0]);
+      } else {
+        extracted = { weight: null, body_fat_pct: null, muscle_mass: null, visceral_fat: null, bmr: null, body_water_pct: null, bone_mass: null };
+      }
     }
 
     return new Response(JSON.stringify({ data: extracted }), {
