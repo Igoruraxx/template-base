@@ -241,18 +241,27 @@ const Progress = () => {
                Voltar
             </button>
             
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center gap-4 mb-5">
               <Avatar className="h-16 w-16 border-2" style={{ borderColor: availableStudents.find(s => s.id === selectedStudent)?.color || '#10b981' }}>
                 <AvatarImage src={availableStudents.find(s => s.id === selectedStudent)?.avatar_url || undefined} className="object-cover" />
                 <AvatarFallback className="bg-primary/10 text-primary text-xl">
                   {availableStudents.find(s => s.id === selectedStudent)?.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h1 className="text-xl font-bold">{availableStudents.find(s => s.id === selectedStudent)?.name}</h1>
+              <div className="flex-1">
+                <h1 className="text-xl font-bold line-clamp-1">{availableStudents.find(s => s.id === selectedStudent)?.name}</h1>
                 <p className="text-sm text-muted-foreground">Dashboard de Progresso</p>
               </div>
             </div>
+
+            <Button 
+               onClick={handleDownloadPdf} 
+               disabled={isGeneratingPdf || (!bioRecords?.length && !photos?.length)}
+               className="w-full mb-6 h-12 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white shadow-lg shadow-black/10 border border-white/10 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+            >
+               {isGeneratingPdf ? <Loader2 className="h-5 w-5 animate-spin text-emerald-400" /> : <FileDown className="h-5 w-5 text-emerald-400" />}
+               <span className="font-semibold">{isGeneratingPdf ? 'Gerando Laudo Premium...' : 'Gerar Laudo Completo (PDF)'}</span>
+            </Button>
 
             <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="w-full bg-muted rounded-xl p-1 mb-4 flex">
@@ -377,15 +386,7 @@ const Progress = () => {
                            </p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <button
-                            onClick={handleDownloadPdf}
-                            disabled={isGeneratingPdf}
-                            className={`transition-colors p-1 ${isGeneratingPdf ? 'text-primary/50 animate-pulse' : 'text-muted-foreground hover:text-primary'}`}
-                            title="Baixar Relatório Completo"
-                          >
-                            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-                          </button>
-                          <button onClick={() => deleteBio.mutate(record.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                          <button onClick={() => deleteBio.mutate(record.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Remover avaliação">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
