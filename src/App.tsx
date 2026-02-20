@@ -26,6 +26,7 @@ const AdminSupport = lazy(() => import("./pages/admin/AdminSupport"));
 const AdminStudents = lazy(() => import("./pages/admin/AdminStudents"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Subscription = lazy(() => import("./pages/Subscription"));
+const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -57,6 +58,7 @@ const App = ({ queryClient }: { queryClient: QueryClient }) => (
                 <Route path="/admin/billing" element={<AdminRoute><AdminBilling /></AdminRoute>} />
                 <Route path="/admin/students" element={<AdminRoute><AdminStudents /></AdminRoute>} />
                 <Route path="/admin/support" element={<AdminRoute><AdminSupport /></AdminRoute>} />
+                <Route path="/update-password" element={<ProtectedRoute><UpdatePassword /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
