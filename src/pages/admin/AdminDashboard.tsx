@@ -18,6 +18,12 @@ const AdminDashboard = () => {
   const recentTrainers = recentTrainersQuery.data ?? [];
   const recentStudents = recentStudentsQuery.data ?? [];
 
+  const handleRefresh = () => {
+    trainersQuery.refetch();
+    recentTrainersQuery.refetch();
+    recentStudentsQuery.refetch();
+  };
+
   const isLoading = trainersQuery.isLoading || recentTrainersQuery.isLoading || recentStudentsQuery.isLoading;
 
   return (
@@ -29,8 +35,8 @@ const AdminDashboard = () => {
             <p className="text-sm text-muted-foreground mt-1 font-medium">Bem-vindo de volta ao centro de operações.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate('/admin/billing')} className="rounded-xl border-border/50 bg-card/50">
-              Ver faturamento
+            <Button variant="outline" size="sm" onClick={handleRefresh} className="rounded-xl border-border/50 bg-card/50">
+              Atualizar
             </Button>
             <Button size="sm" onClick={() => navigate('/admin/users')} className="rounded-xl gradient-primary text-primary-foreground shadow-lg shadow-primary/20">
               Gerenciar Personals

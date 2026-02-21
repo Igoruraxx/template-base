@@ -19,19 +19,42 @@ export const useAdminData = () => {
   const trainersQuery = useQuery({
     queryKey: ['admin-trainers'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_trainer_overview');
-      if (error) {
-        console.error('CRITICAL: Erro ao carregar gestão de usuários:', error);
-        toast.error(`Erro: ${error.message || 'Falha ao conectar administrativo'}`);
-        throw error;
+      try {
+        const { data, error } = await supabase.rpc('admin_trainer_overview');
+        if (error) {
+          // Se falhar a RPC, tenta um fallback direto se for dev ou admin com RLS corrigido
+          console.warn('RPC admin_trainer_overview falhou, tentando fallback...', error);
+          const { data: fallback, error: err2 } = await supabase
+            .from('profiles')
+            .select(`
+              user_id, 
+              full_name, 
+              role, 
+              created_at,
+              trainer_subscriptions(plan, status)
+            `)
+            .in('role', ['trainer', 'admin']);
+          
+          if (err2) throw err2;
+          
+          return fallback.map((p: any) => ({
+            user_id: p.user_id,
+            full_name: p.full_name,
+            role: p.role,
+            created_at: p.created_at,
+            plan: p.trainer_subscriptions?.[0]?.plan || 'free',
+            sub_status: p.trainer_subscriptions?.[0]?.status || 'active',
+            active_students: 0 // Simplificado no fallback
+          })) as TrainerOverview[];
+        }
+        return (data as TrainerOverview[]) || [];
+      } catch (err: any) {
+        toast.error('Erro crítico no painel: ' + (err.message || 'Verifique permissões'));
+        throw err;
       }
-      return (data as TrainerOverview[]) || [];
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
-    retry: 2,
-    meta: {
-      errorMessage: 'Falha ao carregar lista de treinadores'
-    }
+    staleTime: 1000 * 60 * 5,
+    retry: 1
   });
 
   const subscriptionsQuery = useQuery({

@@ -180,8 +180,8 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                   <TableCell className="text-muted-foreground text-sm font-medium">{t.email}</TableCell>
                   <TableCell>
                     {t.role === 'admin' ? (
-                      <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20 hover:bg-purple-500/20 shadow-none">
-                        Administrador
+                      <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-none shadow-sm shadow-purple-500/20">
+                        ADMIN MASTER
                       </Badge>
                     ) : t.plan === 'premium' ? (
                       <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20 shadow-none">
