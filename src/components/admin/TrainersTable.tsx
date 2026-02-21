@@ -1,21 +1,18 @@
 import { useState } from 'react';
-import { Search, Ban, CheckCircle, CreditCard, Eye, Trash2, UserPlus, Filter, MoreVertical, GraduationCap, CalendarPlus, ArrowDownCircle } from 'lucide-react';
-import { isAfter, subHours, format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { Search, Ban, CheckCircle, CreditCard, Eye, Trash2, UserPlus, Filter, MoreVertical, GraduationCap } from 'lucide-react';
+import { isAfter, subHours } from 'date-fns';
 import { TrainerDetailsModal } from './TrainerDetailsModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { TrainerOverview } from '@/hooks/useAdminData';
 import { cn } from '@/lib/utils';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 
@@ -27,20 +24,15 @@ interface TrainersTableProps {
   isConfirmingPix?: boolean;
   onDelete?: (trainerId: string) => void;
   isDeleting?: boolean;
-  onAddDays?: (trainerId: string, days: number) => void;
-  isAddingDays?: boolean;
-  onDowngrade?: (trainerId: string) => void;
-  isDowngrading?: boolean;
 }
 
-export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isConfirmingPix, onDelete, isDeleting, onAddDays, isAddingDays, onDowngrade, isDowngrading }: TrainersTableProps) => {
+export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isConfirmingPix, onDelete, isDeleting }: TrainersTableProps) => {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [advancedFilter, setAdvancedFilter] = useState<string>('all');
   const [selectedTrainer, setSelectedTrainer] = useState<TrainerOverview | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [customDays, setCustomDays] = useState('');
 
   const filtered = trainers.filter((t) => {
     const matchSearch =
@@ -157,21 +149,19 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
               <TableHead className="font-bold">Plano</TableHead>
               <TableHead className="text-center font-bold">Alunos</TableHead>
               <TableHead className="font-bold">Status</TableHead>
-              <TableHead className="font-bold">Expira</TableHead>
               <TableHead className="text-right font-bold">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
                   Nenhum personal encontrado.
                 </TableCell>
               </TableRow>
             )}
             {filtered.map((t) => {
               const isNew = t.created_at ? isAfter(new Date(t.created_at), subHours(new Date(), 24)) : false;
-              const isAdmin = t.role === 'admin';
               return (
                 <TableRow key={t.user_id} className={cn(
                   "group transition-colors h-16 hover:bg-muted/30",
@@ -189,7 +179,7 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm font-medium">{t.email}</TableCell>
                   <TableCell>
-                    {isAdmin ? (
+                    {t.role === 'admin' ? (
                       <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-none shadow-sm shadow-purple-500/20">
                         ADMIN MASTER
                       </Badge>
@@ -221,62 +211,16 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                       <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-none">Ativo</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {t.expires_at ? format(new Date(t.expires_at), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
-                  </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="hover:bg-primary/10 hover:text-primary transition-all active:scale-95"
-                        onClick={() => setSelectedTrainer(t)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Ver
-                      </Button>
-                      {!isAdmin && onAddDays && (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button size="sm" variant="ghost" className="hover:bg-emerald-500/10 hover:text-emerald-500" disabled={isAddingDays}>
-                              <CalendarPlus className="h-4 w-4" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2" align="end">
-                            <p className="text-xs font-bold mb-2 text-muted-foreground">Adicionar dias premium</p>
-                            <div className="grid grid-cols-2 gap-1">
-                              {[7, 15, 30, 90].map(d => (
-                                <Button key={d} size="sm" variant="outline" className="text-xs h-8" onClick={() => onAddDays(t.user_id, d)}>
-                                  +{d} dias
-                                </Button>
-                              ))}
-                            </div>
-                            <div className="flex gap-1 mt-2">
-                              <Input
-                                type="number"
-                                placeholder="Custom"
-                                value={customDays}
-                                onChange={(e) => setCustomDays(e.target.value)}
-                                className="h-8 text-xs"
-                              />
-                              <Button size="sm" variant="default" className="h-8 text-xs px-2" 
-                                onClick={() => { if (customDays) { onAddDays(t.user_id, parseInt(customDays)); setCustomDays(''); } }}
-                                disabled={!customDays}
-                              >
-                                OK
-                              </Button>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      )}
-                      {!isAdmin && t.plan === 'premium' && onDowngrade && (
-                        <Button size="sm" variant="ghost" className="hover:bg-destructive/10 hover:text-destructive" disabled={isDowngrading}
-                          onClick={() => onDowngrade(t.user_id)}
-                        >
-                          <ArrowDownCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="hover:bg-primary/10 hover:text-primary transition-all active:scale-95"
+                      onClick={() => setSelectedTrainer(t)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Visualizar
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
@@ -294,7 +238,6 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
         )}
         {filtered.map((t) => {
           const isNew = t.created_at ? isAfter(new Date(t.created_at), subHours(new Date(), 24)) : false;
-          const isAdmin = t.role === 'admin';
           return (
             <div 
               key={t.user_id} 
@@ -327,37 +270,19 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                     <DropdownMenuItem onClick={() => setSelectedTrainer(t)}>
                       <Eye className="h-4 w-4 mr-2" /> Ficha Completa
                     </DropdownMenuItem>
-                    {!isAdmin && onAddDays && (
-                      <>
-                        <DropdownMenuSeparator />
-                        {[7, 15, 30].map(d => (
-                          <DropdownMenuItem key={d} onClick={(e) => { e.stopPropagation(); onAddDays(t.user_id, d); }}>
-                            <CalendarPlus className="h-4 w-4 mr-2 text-emerald-500" /> +{d} dias premium
-                          </DropdownMenuItem>
-                        ))}
-                      </>
-                    )}
-                    {!isAdmin && t.plan === 'premium' && onDowngrade && (
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDowngrade(t.user_id); }}>
-                        <ArrowDownCircle className="h-4 w-4 mr-2 text-amber-500" /> Rebaixar p/ Free
-                      </DropdownMenuItem>
-                    )}
                     {onConfirmPix && t.sub_status === 'pending_pix' && (
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConfirmPix(t.user_id); }}>
                         <CreditCard className="h-4 w-4 mr-2 text-amber-500" /> Confirmar PIX
                       </DropdownMenuItem>
                     )}
-                    {onDelete && !isAdmin && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); onDelete(t.user_id); }}
-                          disabled={isDeleting}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" /> Excluir Conta
-                        </DropdownMenuItem>
-                      </>
+                    {onDelete && (
+                      <DropdownMenuItem 
+                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); onDelete(t.user_id); }}
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Excluir Conta
+                      </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -367,7 +292,7 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                 <div className="space-y-1">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Plano & Status</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {isAdmin ? (
+                    {t.role === 'admin' ? (
                       <Badge className="bg-purple-500/10 text-purple-500 border-none h-5 text-[10px]">ADMIN</Badge>
                     ) : (
                       <Badge variant={t.plan === 'premium' ? 'default' : 'secondary'} className={cn(

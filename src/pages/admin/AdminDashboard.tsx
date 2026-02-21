@@ -111,7 +111,7 @@ const AdminDashboard = () => {
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold truncate">{s.name}</p>
                             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              via {trainers.find(tr => tr.user_id === s.trainer_id)?.full_name?.split(' ')[0] || '—'} • {formatDistanceToNow(new Date(s.created_at), { addSuffix: true, locale: ptBR })}
+                              via {s.profiles?.full_name?.split(' ')[0]} • {formatDistanceToNow(new Date(s.created_at), { addSuffix: true, locale: ptBR })}
                             </p>
                           </div>
                         </div>

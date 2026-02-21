@@ -11,7 +11,6 @@ export interface TrainerOverview {
   sub_status: string;
   active_students: number;
   created_at: string;
-  expires_at?: string;
 }
 
 export const useAdminData = () => {
@@ -23,28 +22,30 @@ export const useAdminData = () => {
       try {
         const { data, error } = await supabase.rpc('admin_trainer_overview');
         if (error) {
+          // Se falhar a RPC, tenta um fallback direto se for dev ou admin com RLS corrigido
           console.warn('RPC admin_trainer_overview falhou, tentando fallback...', error);
-          // Fallback: fetch profiles and subscriptions separately (no impossible joins)
-          const [profilesRes, subsRes] = await Promise.all([
-            supabase.from('profiles').select('user_id, full_name, role, created_at'),
-            supabase.from('trainer_subscriptions').select('trainer_id, plan, status, expires_at'),
-          ]);
-          if (profilesRes.error) throw profilesRes.error;
-          const subsMap = new Map((subsRes.data ?? []).map((s: any) => [s.trainer_id, s]));
-          return (profilesRes.data ?? []).map((p: any) => {
-            const sub = subsMap.get(p.user_id);
-            return {
-              user_id: p.user_id,
-              full_name: p.full_name,
-              email: '',
-              role: p.role,
-              created_at: p.created_at,
-              plan: sub?.plan || 'free',
-              sub_status: sub?.status || 'active',
-              expires_at: sub?.expires_at || undefined,
-              active_students: 0,
-            } as TrainerOverview;
-          });
+          const { data: fallback, error: err2 } = await supabase
+            .from('profiles')
+            .select(`
+              user_id, 
+              full_name, 
+              role, 
+              created_at,
+              trainer_subscriptions(plan, status)
+            `)
+            .in('role', ['trainer', 'admin']);
+          
+          if (err2) throw err2;
+          
+          return fallback.map((p: any) => ({
+            user_id: p.user_id,
+            full_name: p.full_name,
+            role: p.role,
+            created_at: p.created_at,
+            plan: p.trainer_subscriptions?.[0]?.plan || 'free',
+            sub_status: p.trainer_subscriptions?.[0]?.status || 'active',
+            active_students: 0 // Simplificado no fallback
+          })) as TrainerOverview[];
         }
         return (data as TrainerOverview[]) || [];
       } catch (err: any) {
@@ -103,6 +104,10 @@ export const useAdminData = () => {
 
   const deleteTrainer = useMutation({
     mutationFn: async (trainerId: string) => {
+      // Direct deletion from auth.users requires service_role or a custom RPC
+      // Since we don't have a service_role client in frontend, we'll use an RPC if available
+      // or just delete from profiles/subscriptions which are linked via CASCADE to other tables
+      // But for complete removal, we usually need a function.
       const { error } = await supabase.rpc('delete_trainer_complete' as any, { t_id: trainerId });
       if (error) throw error;
     },
@@ -129,7 +134,7 @@ export const useAdminData = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('*')
+        .select('*, profiles(full_name)')
         .order('created_at', { ascending: false })
         .limit(5);
       if (error) throw error;
@@ -180,6 +185,7 @@ export const useAdminMutations = () => {
 
   const addPremiumDays = useMutation({
     mutationFn: async ({ trainerId, days }: { trainerId: string; days: number }) => {
+      // First get current expiration
       const { data: current } = await supabase
         .from('trainer_subscriptions')
         .select('expires_at')
@@ -211,24 +217,5 @@ export const useAdminMutations = () => {
     },
   });
 
-  const downgradePlan = useMutation({
-    mutationFn: async (trainerId: string) => {
-      const { error } = await supabase
-        .from('trainer_subscriptions')
-        .update({
-          plan: 'free',
-          expires_at: null,
-          price: 0,
-        })
-        .eq('trainer_id', trainerId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-trainers'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-subscriptions'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-trainer-subscription-details'] });
-    },
-  });
-
-  return { addPremiumDays, downgradePlan };
+  return { addPremiumDays };
 };
