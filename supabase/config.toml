@@ -1,7 +1,4 @@
-project_id = "hfyijlmdejjcdotwccrp"
-
-[functions.extract-bioimpedance]
-verify_jwt = false
+project_id = "drjdifrwmbrirmifmxjv"
 
 [functions.create-checkout]
 verify_jwt = false

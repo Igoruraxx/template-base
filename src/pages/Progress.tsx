@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { ocrService } from '@/lib/ocrService';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import { useStudents } from '@/hooks/useStudents';
@@ -73,28 +74,23 @@ const Progress = () => {
     if (!ocrFile) return;
     setOcrLoading(true);
     try {
-      const base64 = await fileToBase64(ocrFile);
-      const { data, error } = await supabase.functions.invoke('extract-bioimpedance', {
-        body: { imageBase64: base64 },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const d = data?.data || {};
+      const data = await ocrService.extractFromImage(ocrFile);
+      
       setBioForm(prev => ({
         ...prev,
-        weight: d.weight?.toString() || prev.weight,
-        bodyFatPct: d.body_fat_pct?.toString() || prev.bodyFatPct,
-        muscleMass: d.muscle_mass?.toString() || prev.muscleMass,
-        visceralFat: d.visceral_fat?.toString() || prev.visceralFat,
-        bmr: d.bmr?.toString() || prev.bmr,
-        bodyWaterPct: d.body_water_pct?.toString() || prev.bodyWaterPct,
-        boneMass: d.bone_mass?.toString() || prev.boneMass,
+        weight: data.weight?.toString() || prev.weight,
+        bodyFatPct: data.bodyFatPct?.toString() || prev.bodyFatPct,
+        muscleMass: data.muscleMass?.toString() || prev.muscleMass,
+        visceralFat: data.visceralFat?.toString() || prev.visceralFat,
+        bmr: data.bmr?.toString() || prev.bmr,
+        bodyWaterPct: data.bodyWaterPct?.toString() || prev.bodyWaterPct,
+        boneMass: data.boneMass?.toString() || prev.boneMass,
         reportFile: ocrFile,
       }));
       setOcrExtracted(true);
-      toast({ title: 'Valores extraídos! Revise e confirme.' });
+      toast({ title: 'Valores extraídos localmente! Revise e confirme.' });
     } catch (err: any) {
-      toast({ title: 'Erro na extração', description: err.message, variant: 'destructive' });
+      toast({ title: 'Erro na extração local', description: err.message, variant: 'destructive' });
     } finally {
       setOcrLoading(false);
     }
