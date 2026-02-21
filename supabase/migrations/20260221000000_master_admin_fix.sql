@@ -30,7 +30,16 @@ BEGIN
 END;
 $$;
 
--- 2. GARANTIR INTEGRIDADE DE DADOS (SUBSCRIPTIONS)
+-- 2. LIMPEZA E INTEGRIDADE (SENIOR CLEANUP)
+-- Remove registros de tabelas públicas que referenciam usuários que não existem mais no auth.users
+-- Isso corrige erros de Foreign Key e inconsistências no painel admin
+DO $body$
+BEGIN
+    DELETE FROM public.user_roles WHERE user_id NOT IN (SELECT id FROM auth.users);
+    DELETE FROM public.profiles WHERE user_id NOT IN (SELECT id FROM auth.users);
+    DELETE FROM public.trainer_subscriptions WHERE trainer_id NOT IN (SELECT id FROM auth.users);
+END $body$;
+
 -- Garante que todo perfil tenha uma entrada na tabela de assinaturas
 INSERT INTO public.trainer_subscriptions (trainer_id, plan, status, price)
 SELECT user_id, 'free', 'active', 0
@@ -138,6 +147,8 @@ CREATE INDEX IF NOT EXISTS idx_student_status_trainer ON public.students(status,
 -- Garantir que trainer_subscriptions tenha uma Foreign Key explícita se ainda não tiver
 DO $body$
 BEGIN
+    -- (Já realizado no topo do script para maior segurança)
+
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.table_constraints 
         WHERE constraint_name = 'trainer_subscriptions_trainer_id_fkey'
