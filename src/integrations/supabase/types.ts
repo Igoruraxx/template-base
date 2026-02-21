@@ -536,12 +536,15 @@ export type Database = {
           active_students: number
           created_at: string
           email: string
+          expires_at: string
           full_name: string
           plan: string
+          role: string
           sub_status: string
           user_id: string
         }[]
       }
+      delete_trainer_complete: { Args: { t_id: string }; Returns: undefined }
       get_student_bio: {
         Args: { _student_id: string }
         Returns: {
