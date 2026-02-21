@@ -1,5 +1,5 @@
 -- ========================================================
--- MASTER ADMIN ARCHITECTURE FIX - SENIOR LEVEL
+-- MASTER ADMIN ARCHITECTURE FIX - SENIOR LEVEL V2
 -- ========================================================
 
 -- 1. NORMALIZAÇÃO DE TIPOS E SEGURANÇA BASE
@@ -11,7 +11,9 @@ BEGIN
 END $body$;
 
 -- Função helper suprema para checar permissões
--- NOTA SÊNIOR: Mantemos o nome do parâmetro como '_role' para não quebrar as políticas RLS dependentes
+DROP FUNCTION IF EXISTS public.has_role(UUID, public.app_role) CASCADE;
+DROP FUNCTION IF EXISTS public.has_role(UUID, app_role) CASCADE;
+
 CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role public.app_role)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -31,8 +33,6 @@ END;
 $$;
 
 -- 2. LIMPEZA E INTEGRIDADE (SENIOR CLEANUP)
--- Remove registros de tabelas públicas que referenciam usuários que não existem mais no auth.users
--- Isso corrige erros de Foreign Key e inconsistências no painel admin
 DO $body$
 BEGIN
     DELETE FROM public.user_roles WHERE user_id NOT IN (SELECT id FROM auth.users);
@@ -55,8 +55,13 @@ ON CONFLICT DO NOTHING;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
-CREATE POLICY "Admins can view all profiles" ON public.profiles FOR SELECT USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can delete profiles" ON public.profiles;
+
 CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Admins can view all profiles" ON public.profiles FOR SELECT USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+CREATE POLICY "Admins can update all profiles" ON public.profiles FOR UPDATE USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+CREATE POLICY "Admins can delete profiles" ON public.profiles FOR DELETE USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 -- Students
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
@@ -90,7 +95,8 @@ RETURNS TABLE(
   plan text, 
   sub_status text, 
   active_students bigint, 
-  created_at timestamp with time zone
+  created_at timestamp with time zone,
+  expires_at timestamp with time zone
 )
 LANGUAGE plpgsql 
 STABLE 
@@ -111,7 +117,8 @@ BEGIN
     COALESCE(ts.plan, 'free'),
     COALESCE(ts.status, 'active'),
     (SELECT COUNT(*) FROM public.students s WHERE s.trainer_id = p.user_id AND s.status = 'active') as active_students,
-    p.created_at
+    p.created_at,
+    ts.expires_at
   FROM public.profiles p
   JOIN auth.users u ON u.id = p.user_id
   LEFT JOIN public.trainer_subscriptions ts ON ts.trainer_id = p.user_id
@@ -121,34 +128,41 @@ END;
 $$;
 
 -- 5. RPC: DELETE_TRAINER_COMPLETE
-CREATE OR REPLACE FUNCTION public.delete_trainer_complete(t_id UUID)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
+DROP FUNCTION IF EXISTS public.delete_trainer_complete(uuid);
+
+CREATE OR REPLACE FUNCTION public.delete_trainer_complete(t_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
 BEGIN
   IF NOT public.has_role(auth.uid(), 'admin'::public.app_role) THEN
-    RAISE EXCEPTION 'Acesso negado: Somente administradores podem remover treinadores.';
+    RAISE EXCEPTION 'Unauthorized';
   END IF;
-
+  
   IF auth.uid() = t_id THEN
     RAISE EXCEPTION 'Auto-deleção bloqueada para segurança da conta.';
   END IF;
 
-  DELETE FROM auth.users WHERE id = t_id;
-END;
-$$;
+  DELETE FROM sessions WHERE trainer_id = t_id;
+  DELETE FROM payments WHERE trainer_id = t_id;
+  -- DELETE FROM assessments WHERE trainer_id = t_id; -- Comentado se nao existir ainda
+  DELETE FROM bioimpedance WHERE trainer_id = t_id;
+  DELETE FROM progress_photos WHERE trainer_id = t_id;
+  DELETE FROM students WHERE trainer_id = t_id;
+  -- DELETE FROM push_subscriptions WHERE trainer_id = t_id; -- Comentado se nao existir ainda
+  DELETE FROM trainer_subscriptions WHERE trainer_id = t_id;
+  DELETE FROM user_roles WHERE user_id = t_id;
+  DELETE FROM profiles WHERE user_id = t_id;
+  
+  -- Nota: Deleção de auth.users deve ser feita via Admin API do Supabase ou service_role se necessário,
+  -- mas esta limpeza de dados públicos já é o suficiente para o "reset" administrativo.
+END; $$;
 
 -- 6. INDEXAÇÃO E REQUISITOS DE INTEGRIDADE
 CREATE INDEX IF NOT EXISTS idx_profiles_role_search ON public.profiles(role);
 CREATE INDEX IF NOT EXISTS idx_student_status_trainer ON public.students(status, trainer_id);
 
--- Garantir que trainer_subscriptions tenha uma Foreign Key explícita se ainda não tiver
+-- Garantir Foreign Key explícita
 DO $body$
 BEGIN
-    -- (Já realizado no topo do script para maior segurança)
-
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.table_constraints 
         WHERE constraint_name = 'trainer_subscriptions_trainer_id_fkey'

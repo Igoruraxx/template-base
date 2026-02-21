@@ -11,6 +11,7 @@ export interface TrainerOverview {
   sub_status: string;
   active_students: number;
   created_at: string;
+  expires_at?: string;
 }
 
 export const useAdminData = () => {
@@ -22,30 +23,30 @@ export const useAdminData = () => {
       try {
         const { data, error } = await supabase.rpc('admin_trainer_overview');
         if (error) {
-          // Se falhar a RPC, tenta um fallback direto se for dev ou admin com RLS corrigido
           console.warn('RPC admin_trainer_overview falhou, tentando fallback...', error);
-          const { data: fallback, error: err2 } = await supabase
-            .from('profiles')
-            .select(`
-              user_id, 
-              full_name, 
-              role, 
-              created_at,
-              trainer_subscriptions(plan, status)
-            `)
-            .in('role', ['trainer', 'admin']);
           
-          if (err2) throw err2;
+          // Fallback Sênior: Busca profiles e subscriptions separadamente para evitar erro de join
+          const [{ data: profiles, error: errP }, { data: subs, error: errS }] = await Promise.all([
+            supabase.from('profiles').select('user_id, full_name, role, created_at').in('role', ['trainer', 'admin']),
+            supabase.from('trainer_subscriptions').select('trainer_id, plan, status, expires_at')
+          ]);
+
+          if (errP) throw errP;
           
-          return fallback.map((p: any) => ({
-            user_id: p.user_id,
-            full_name: p.full_name,
-            role: p.role,
-            created_at: p.created_at,
-            plan: p.trainer_subscriptions?.[0]?.plan || 'free',
-            sub_status: p.trainer_subscriptions?.[0]?.status || 'active',
-            active_students: 0 // Simplificado no fallback
-          })) as TrainerOverview[];
+          return (profiles || []).map(p => {
+            const s = (subs || []).find(sub => sub.trainer_id === p.user_id);
+            return {
+              user_id: p.user_id,
+              full_name: p.full_name,
+              role: p.role,
+              created_at: p.created_at,
+              plan: s?.plan || 'free',
+              sub_status: s?.status || 'active',
+              expires_at: s?.expires_at,
+              active_students: 0,
+              email: '' // Email não disponível no profile público sem join com auth.users
+            };
+          }) as TrainerOverview[];
         }
         return (data as TrainerOverview[]) || [];
       } catch (err: any) {
@@ -134,10 +135,20 @@ export const useAdminData = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('*, profiles(full_name)')
+        .select('*, profiles:trainer_id(full_name)')
         .order('created_at', { ascending: false })
         .limit(5);
-      if (error) throw error;
+      
+      if (error) {
+        console.warn('Erro ao buscar alunos recentes com profiles, tentando fallback sem join...', error);
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('students')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (simpleError) throw simpleError;
+        return simpleData;
+      }
       return data;
     },
   });
@@ -217,5 +228,25 @@ export const useAdminMutations = () => {
     },
   });
 
-  return { addPremiumDays };
+  const downgradePlan = useMutation({
+    mutationFn: async (trainerId: string) => {
+      const { error } = await supabase
+        .from('trainer_subscriptions')
+        .update({
+          plan: 'free',
+          status: 'active',
+          price: 0,
+          expires_at: null
+        })
+        .eq('trainer_id', trainerId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-trainers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-trainer-subscription-details'] });
+    },
+  });
+
+  return { addPremiumDays, downgradePlan };
 };

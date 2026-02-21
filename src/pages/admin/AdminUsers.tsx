@@ -1,11 +1,12 @@
 import { AdminLayout } from '@/components/AdminLayout';
 import { TrainersTable } from '@/components/admin/TrainersTable';
-import { useAdminData } from '@/hooks/useAdminData';
+import { useAdminData, useAdminMutations } from '@/hooks/useAdminData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 const AdminUsers = () => {
   const { trainersQuery, blockTrainer, confirmPix, deleteTrainer } = useAdminData();
+  const { addPremiumDays, downgradePlan } = useAdminMutations();
   const trainers = trainersQuery.data ?? [];
 
   const handleBlock = (trainerId: string, blocked: boolean) => {
@@ -34,6 +35,21 @@ const AdminUsers = () => {
     });
   };
 
+  const handleAddDays = (trainerId: string, days: number) => {
+    addPremiumDays.mutate({ trainerId, days }, {
+      onSuccess: () => toast.success(`Adicionados ${days} dias de premium`),
+      onError: () => toast.error('Erro ao adicionar dias'),
+    });
+  };
+
+  const handleDowngrade = (trainerId: string) => {
+    if (!confirm('Rebaixar para plano FREE?')) return;
+    downgradePlan.mutate(trainerId, {
+      onSuccess: () => toast.success('Plano rebaixado para Free'),
+      onError: () => toast.error('Erro ao rebaixar plano'),
+    });
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -53,6 +69,8 @@ const AdminUsers = () => {
             isConfirmingPix={confirmPix.isPending}
             onDelete={handleDelete}
             isDeleting={deleteTrainer.isPending}
+            onAddDays={handleAddDays}
+            onDowngrade={handleDowngrade}
           />
         )}
       </div>

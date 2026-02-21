@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Search, Ban, CheckCircle, CreditCard, Eye, Trash2, UserPlus, Filter, MoreVertical, GraduationCap } from 'lucide-react';
-import { isAfter, subHours } from 'date-fns';
+import { Search, Ban, CheckCircle, CreditCard, Eye, Trash2, UserPlus, Filter, MoreVertical, GraduationCap, Calendar, Clock, ArrowRight } from 'lucide-react';
+import { isAfter, subHours, addDays } from 'date-fns';
 import { TrainerDetailsModal } from './TrainerDetailsModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { TrainerOverview } from '@/hooks/useAdminData';
 import { cn } from '@/lib/utils';
 import { 
@@ -24,9 +25,21 @@ interface TrainersTableProps {
   isConfirmingPix?: boolean;
   onDelete?: (trainerId: string) => void;
   isDeleting?: boolean;
+  onAddDays?: (trainerId: string, days: number) => void;
+  onDowngrade?: (trainerId: string) => void;
 }
 
-export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isConfirmingPix, onDelete, isDeleting }: TrainersTableProps) => {
+export const TrainersTable = ({ 
+  trainers, 
+  onBlock, 
+  isBlocking, 
+  onConfirmPix, 
+  isConfirmingPix, 
+  onDelete, 
+  isDeleting,
+  onAddDays,
+  onDowngrade
+}: TrainersTableProps) => {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -212,15 +225,73 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="hover:bg-primary/10 hover:text-primary transition-all active:scale-95"
-                      onClick={() => setSelectedTrainer(t)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Visualizar
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      {onAddDays && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-8 border-amber-500/20 text-amber-600 hover:bg-amber-500/10 gap-2">
+                              <Calendar className="h-3.5 w-3.5" />
+                              + Dias
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 p-3 bg-card border-border shadow-xl">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                <Clock className="h-3 w-3" /> Adicionar Tempo
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {[7, 15, 30, 90].map(days => (
+                                  <Button 
+                                    key={days} 
+                                    size="sm" 
+                                    variant="secondary" 
+                                    className="h-8 text-[10px] font-bold"
+                                    onClick={() => onAddDays(t.user_id, days)}
+                                  >
+                                    {days} Dias
+                                  </Button>
+                                ))}
+                              </div>
+                              <div className="relative pt-2 border-t border-border/50">
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="w-full h-8 text-[10px] font-bold text-primary hover:bg-primary/5 gap-1"
+                                  onClick={() => {
+                                    const custom = prompt('Quantos dias deseja adicionar?');
+                                    if (custom && !isNaN(Number(custom))) onAddDays(t.user_id, Number(custom));
+                                  }}
+                                >
+                                  Valor customizado <ArrowRight className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                      
+                      {onDowngrade && t.plan === 'premium' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 border-destructive/20 text-destructive hover:bg-destructive/10"
+                          onClick={() => onDowngrade(t.user_id)}
+                          title="Rebaixar para FREE"
+                        >
+                          Downgrade
+                        </Button>
+                      )}
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="hover:bg-primary/10 hover:text-primary transition-all active:scale-95"
+                        onClick={() => setSelectedTrainer(t)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Visualizar
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -273,6 +344,16 @@ export const TrainersTable = ({ trainers, onBlock, isBlocking, onConfirmPix, isC
                     {onConfirmPix && t.sub_status === 'pending_pix' && (
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConfirmPix(t.user_id); }}>
                         <CreditCard className="h-4 w-4 mr-2 text-amber-500" /> Confirmar PIX
+                      </DropdownMenuItem>
+                    )}
+                    {onAddDays && t.plan === 'premium' && (
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAddDays(t.user_id, 30); }}>
+                        <UserPlus className="h-4 w-4 mr-2 text-amber-500" /> Adicionar 30 Dias
+                      </DropdownMenuItem>
+                    )}
+                    {onDowngrade && t.plan === 'premium' && (
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDowngrade(t.user_id); }}>
+                        <Filter className="h-4 w-4 mr-2 text-destructive" /> Rebaixar para Free
                       </DropdownMenuItem>
                     )}
                     {onDelete && (

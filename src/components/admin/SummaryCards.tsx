@@ -40,7 +40,6 @@ export const SummaryCards = ({ trainers }: SummaryCardsProps) => {
       accent: 'text-amber-500',
       bgAccent: 'bg-amber-500/10',
       description: 'Últimos 7 dias',
-      growth: '+12%',
     },
   ];
 
@@ -60,12 +59,6 @@ export const SummaryCards = ({ trainers }: SummaryCardsProps) => {
                 <p className="text-3xl font-black tracking-tight">{card.value}</p>
                 <div className="flex items-center gap-2">
                   <p className="text-[10px] text-muted-foreground">{card.description}</p>
-                  {card.growth && (
-                    <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
-                      <TrendingUp className="h-2.5 w-2.5" />
-                      {card.growth}
-                    </span>
-                  )}
                 </div>
               </div>
               <div className={cn(
