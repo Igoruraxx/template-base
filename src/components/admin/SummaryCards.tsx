@@ -1,4 +1,4 @@
-import { Users, DollarSign, UserPlus, TrendingUp } from 'lucide-react';
+import { Users, DollarSign, UserPlus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { TrainerOverview } from '@/hooks/useAdminData';
 import { cn } from '@/lib/utils';
@@ -40,7 +40,7 @@ export const SummaryCards = ({ trainers }: SummaryCardsProps) => {
       accent: 'text-amber-500',
       bgAccent: 'bg-amber-500/10',
       description: 'Últimos 7 dias',
-      growth: '+12%',
+      
     },
   ];
 
@@ -58,15 +58,7 @@ export const SummaryCards = ({ trainers }: SummaryCardsProps) => {
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{card.title}</p>
                 <p className="text-3xl font-black tracking-tight">{card.value}</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-[10px] text-muted-foreground">{card.description}</p>
-                  {card.growth && (
-                    <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
-                      <TrendingUp className="h-2.5 w-2.5" />
-                      {card.growth}
-                    </span>
-                  )}
-                </div>
+                <p className="text-[10px] text-muted-foreground">{card.description}</p>
               </div>
               <div className={cn(
                 "p-3 rounded-2xl shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3",
