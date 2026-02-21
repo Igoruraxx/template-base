@@ -3,40 +3,47 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirme seu e-mail</title>
+  <title>Bem-vindo ao FITPRO AGENDA</title>
   <style>
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; color: #18181b; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-    .header { background-color: #18181b; padding: 32px 24px; text-align: center; }
-    .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
-    .header .highlight { color: #facc15; } /* A yellow/gold tone mimicking gradient text */
-    .content { padding: 32px 24px; }
-    .content p { font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: #3f3f46; }
-    .button-container { text-align: center; margin-top: 32px; margin-bottom: 32px; }
-    .button { display: inline-block; background-color: #18181b; color: #ffffff !important; padding: 14px 28px; font-size: 16px; font-weight: 600; text-decoration: none; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(24, 24, 27, 0.2); transition: background-color 0.2s; }
-    .button:hover { background-color: #27272a; }
-    .footer { background-color: #fafafa; padding: 24px; text-align: center; border-top: 1px solid #e4e4e7; }
-    .footer p { font-size: 14px; color: #71717a; margin: 0; }
+    body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
+    .main { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
+    .header { background-color: #0f172a; padding: 40px 20px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase; }
+    .header .highlight { color: #10b981; }
+    .content { padding: 40px 32px; border-bottom: 1px solid #f1f5f9; }
+    .content h2 { margin-top: 0; color: #0f172a; font-size: 20px; font-weight: 600; }
+    .content p { font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: #475569; }
+    .button-wrapper { text-align: center; margin: 35px 0; }
+    .button { display: inline-block; background-color: #10b981; color: #ffffff !important; padding: 16px 32px; font-size: 16px; font-weight: 600; text-decoration: none; border-radius: 12px; transition: background-color 0.2s; }
+    .footer { background-color: #ffffff; padding: 32px; text-align: center; }
+    .footer p { font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.5; }
+    .footer a { color: #10b981; text-decoration: none; }
+    @media only screen and (max-width: 600px) { .main { margin: 20px 10px; } .content { padding: 30px 20px; } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>FITPRO <span class="highlight">AGENDA</span></h1>
-    </div>
-    <div class="content">
-      <p>Olá,</p>
-      <p>Bem-vindo(a) ao <strong>FITPRO AGENDA</strong>! Estamos muito felizes em ter você com a gente. Para começar a usar a plataforma e gerenciar seus alunos e treinos, precisamos apenas que você confirme seu endereço de e-mail.</p>
-      <div class="button-container">
-        <a href="{{ .ConfirmationURL }}" class="button">Confirmar meu e-mail</a>
+  <div class="wrapper">
+    <div class="main">
+      <div class="header">
+        <h1>FITPRO <span class="highlight">AGENDA</span></h1>
       </div>
-      <p>Se o botão acima não funcionar, cole o link abaixo em seu navegador:</p>
-      <p style="word-break: break-all; font-size: 14px; color: #71717a;">{{ .ConfirmationURL }}</p>
-      <p>Se você não criou uma conta no FITPRO AGENDA, por favor, ignore este e-mail.</p>
-      <p>Abraços,<br>Equipe FITPRO AGENDA</p>
-    </div>
-    <div class="footer">
-      <p>&copy; 2024 FITPRO AGENDA. Todos os direitos reservados.</p>
+      <div class="content">
+        <h2>Olá! Seja muito bem-vindo(a).</h2>
+        <p>Sua jornada para uma gestão de alta performance começa agora. O <strong>FITPRO AGENDA</strong> foi desenhado para profissionais que buscam excelência no atendimento e controle total sobre sua carreira.</p>
+        <p>Para ativar sua conta e garantir a segurança dos seus dados, por favor confirme seu e-mail clicando no botão abaixo:</p>
+        
+        <div class="button-wrapper">
+          <a href="{{ .ConfirmationURL }}" class="button">Confirmar Cadastro</a>
+        </div>
+        
+        <p>Após a confirmação, você terá acesso imediato a todas as ferramentas de agendamento, avaliação física e controle financeiro.</p>
+        <p>Seja bem-vindo ao próximo nível do seu negócio.</p>
+      </div>
+      <div class="footer">
+        <p><strong>Equipe de Sucesso do Cliente</strong><br>FITPRO AGENDA — Gestão Inteligente para Personal Trainers</p>
+        <p style="margin-top: 20px;">Este é um e-mail automático. Por favor, não responda diretamente.<br>Se precisar de suporte, acesse <a href="https://suporte.seudominio.com.br">nossa central de ajuda</a>.</p>
+      </div>
     </div>
   </div>
 </body>

@@ -154,6 +154,19 @@
     @apply bg-card/80 backdrop-blur-xl border border-border/50;
   }
 
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .min-h-screen-safe {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+
   .gradient-primary {
     background: linear-gradient(135deg, hsl(160 84% 39%), hsl(180 70% 35%));
   }

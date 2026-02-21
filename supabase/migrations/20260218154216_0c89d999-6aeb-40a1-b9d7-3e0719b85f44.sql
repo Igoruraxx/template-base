@@ -1,4 +1,4 @@
-
+1
 -- Storage buckets
 INSERT INTO storage.buckets (id, name, public) VALUES ('progress-photos', 'progress-photos', true);
 INSERT INTO storage.buckets (id, name, public) VALUES ('bioimpedance-reports', 'bioimpedance-reports', true);

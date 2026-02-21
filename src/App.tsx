@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 // Lazy-loaded pages
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
+const ConfirmEmail = lazy(() => import("./pages/ConfirmEmail"));
 const Students = lazy(() => import("./pages/Students"));
 const Schedule = lazy(() => import("./pages/Schedule"));
 const Progress = lazy(() => import("./pages/Progress"));
@@ -45,6 +46,7 @@ const App = ({ queryClient }: { queryClient: QueryClient }) => (
             <Suspense fallback={<LoadingScreen />}>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/confirm" element={<ConfirmEmail />} />
                 <Route path="/portal" element={<StudentPortal />} />
                 <Route path="/" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
                 <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />

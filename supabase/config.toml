@@ -31,9 +31,9 @@ double_confirm_changes = true
 enable_confirmations = true
 
 [auth.email.template.confirmation]
-subject = "Confirme seu e-mail do FITPRO AGENDA"
+subject = "Ative sua conta - FITPRO AGENDA"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Recupere sua senha do FITPRO AGENDA"
+subject = "Recuperação de Acesso - FITPRO AGENDA"
 content_path = "./supabase/templates/recovery.html"
