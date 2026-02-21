@@ -82,10 +82,14 @@ export async function generateBioimpedancePdf(
     doc.setFillColor(16, 185, 129); // emerald-500
     doc.rect(0, 0, pageWidth, 40, 'F');
     
-    // Logo se existir
-    const logoBase64 = await loadImageAsBase64('/icon-192.png');
-    if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', 14, 10, 20, 20);
+    // Logo se existir - Agora com tratamento silencioso para não quebrar o PDF
+    try {
+      const logoBase64 = await loadImageAsBase64('/icon-192.png');
+      if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', 14, 10, 20, 20);
+      }
+    } catch (e) {
+      console.warn('Falha ao carregar logo para o PDF, continuando sem imagem.');
     }
     
     doc.setTextColor(255, 255, 255);

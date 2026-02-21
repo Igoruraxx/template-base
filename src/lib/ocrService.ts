@@ -1,4 +1,4 @@
-import { createWorker } from 'tesseract.js';
+import { createWorker, type Worker } from 'tesseract.js';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface BioimpedanceExtractedData {
@@ -58,12 +58,19 @@ export const ocrService = {
   },
 
   async extractLocal(imageBuffer: string | File): Promise<BioimpedanceExtractedData> {
-    const worker = await createWorker('por');
+    let worker: Worker | null = null;
     try {
+      console.log('Inicializando Tesseract Worker...');
+      worker = await createWorker('por');
       const { data: { text } } = await worker.recognize(imageBuffer);
       return this.parseText(text);
+    } catch (error) {
+      console.error('Falha crítica no Tesseract Worker:', error);
+      throw new Error('Não foi possível processar a imagem localmente. Verifique as permissões do navegador.');
     } finally {
-      await worker.terminate();
+      if (worker) {
+        await worker.terminate();
+      }
     }
   },
 

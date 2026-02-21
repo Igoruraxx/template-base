@@ -344,7 +344,7 @@ const Progress = () => {
                   </div>
                 </div>
 
-                {chartData.length > 1 && (
+                {chartData.length > 0 ? (
                   <div className="glass rounded-2xl p-4 mb-5 border border-border/50 shadow-sm bg-background/95" ref={chartRef}>
                     <ResponsiveContainer width="100%" height={220}>
                       <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -353,11 +353,21 @@ const Progress = () => {
                         <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
                         <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', fontSize: 12, boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                         <Legend wrapperStyle={{ fontSize: 10, paddingTop: '10px' }} iconType="circle" />
-                        <Line type="monotone" dataKey="Peso (kg)" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} />
-                        <Line type="monotone" dataKey="Gordura (%)" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} />
-                        <Line type="monotone" dataKey="Massa Musc. (kg)" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="Peso (kg)" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} connectNulls />
+                        <Line type="monotone" dataKey="Gordura (%)" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} connectNulls />
+                        <Line type="monotone" dataKey="Massa Musc. (kg)" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} connectNulls />
                       </LineChart>
                     </ResponsiveContainer>
+                    {chartData.length === 1 && (
+                      <p className="text-[10px] text-center text-muted-foreground mt-2 italic">
+                        * Adicione mais medições para visualizar a linha de tendência.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="glass rounded-2xl p-6 mb-5 border border-dashed border-border/50 flex flex-col items-center justify-center text-center">
+                    <TrendingUp className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                    <p className="text-xs text-muted-foreground">O gráfico de evolução aparecerá aqui após o primeiro registro.</p>
                   </div>
                 )}
 
