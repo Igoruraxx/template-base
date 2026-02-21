@@ -3,20 +3,16 @@
 -- ========================================================
 
 -- 1. NORMALIZAÇÃO DE TIPOS E SEGURANÇA BASE
-DO $$
+DO $body$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
         CREATE TYPE public.app_role AS ENUM ('admin', 'trainer');
     END IF;
-END$$;
+END $body$;
 
 -- Função helper suprema para checar permissões
--- 2. FUNÇÃO DE CHECAGEM DE PAPEL (SUPREMA)
--- Garante que o sistema reconheça o admin tanto pela tabela user_roles quanto pela profiles
-DROP FUNCTION IF EXISTS public.has_role(UUID, public.app_role);
-DROP FUNCTION IF EXISTS public.has_role(UUID, app_role);
-
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _requested_role public.app_role)
+-- NOTA SÊNIOR: Mantemos o nome do parâmetro como '_role' para não quebrar as políticas RLS dependentes
+CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role public.app_role)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 STABLE
@@ -26,10 +22,10 @@ AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = _requested_role
+    WHERE user_id = _user_id AND role = _role
   ) OR EXISTS (
     SELECT 1 FROM public.profiles
-    WHERE user_id = _user_id AND role = _requested_role::TEXT
+    WHERE user_id = _user_id AND role = _role::TEXT
   );
 END;
 $$;
@@ -74,6 +70,8 @@ DROP POLICY IF EXISTS "Admins can manage subscriptions" ON public.trainer_subscr
 CREATE POLICY "Admins can manage subscriptions" ON public.trainer_subscriptions FOR ALL USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 -- 4. RPC: ADMIN_TRAINER_OVERVIEW (VERSÃO FINAL OTIMIZADA)
+DROP FUNCTION IF EXISTS public.admin_trainer_overview();
+
 CREATE OR REPLACE FUNCTION public.admin_trainer_overview()
 RETURNS TABLE(
   user_id uuid, 
@@ -138,7 +136,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_role_search ON public.profiles(role);
 CREATE INDEX IF NOT EXISTS idx_student_status_trainer ON public.students(status, trainer_id);
 
 -- Garantir que trainer_subscriptions tenha uma Foreign Key explícita se ainda não tiver
-DO $$
+DO $body$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.table_constraints 
@@ -148,4 +146,4 @@ BEGIN
         ADD CONSTRAINT trainer_subscriptions_trainer_id_fkey 
         FOREIGN KEY (trainer_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
-END$$;
+END $body$;
