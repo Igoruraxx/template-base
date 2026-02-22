@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,10 +24,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<{ role?: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const initialLoadDone = useRef(false);
 
   useEffect(() => {
     const fetchProfile = async (userId: string) => {
-      setLoading(true);
+      if (!initialLoadDone.current) {
+        setLoading(true);
+      }
       try {
         const [profileResult, adminCheckResult] = await Promise.all([
           supabase
@@ -51,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching profile or role:', error);
       } finally {
         setLoading(false);
+        initialLoadDone.current = true;
       }
     };
 

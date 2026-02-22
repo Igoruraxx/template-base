@@ -95,7 +95,10 @@ export const MultiPhotoUpload = ({ open, onOpenChange, studentId }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
+      <DialogContent
+        className="glass max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Camera className="h-5 w-5 text-primary" /> Nova Medição Visual
@@ -121,42 +124,39 @@ export const MultiPhotoUpload = ({ open, onOpenChange, studentId }: Props) => {
             {SLOTS.map(({ key, label }) => (
               <div key={key} className="space-y-1.5">
                 <p className="text-xs font-medium text-center text-muted-foreground">{label}</p>
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!slots[key].file) {
-                      const input = inputRefs.current[key];
-                      if (input) {
-                        input.value = '';
-                        input.click();
-                      }
-                    }
-                  }}
-                  className={`relative aspect-[3/4] rounded-xl border-2 border-dashed transition-colors cursor-pointer flex items-center justify-center overflow-hidden ${
-                    slots[key].file ? 'border-primary/50' : 'border-border/50 hover:border-primary/30 bg-muted/30'
-                  }`}
-                >
-                  {slots[key].preview ? (
-                    <>
-                      <img src={slots[key].preview!} alt={label} className="w-full h-full object-cover" />
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removePhoto(key); }}
-                        className="absolute top-1 right-1 bg-black/60 rounded-full p-1 text-white hover:bg-black/80"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1 p-2">
-                      <Upload className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground text-center">Clique para enviar</span>
-                    </div>
+                <div className="relative">
+                  <label
+                    htmlFor={`photo-input-${key}`}
+                    className={`relative aspect-[3/4] rounded-xl border-2 border-dashed transition-colors cursor-pointer flex items-center justify-center overflow-hidden ${
+                      slots[key].file ? 'border-primary/50' : 'border-border/50 hover:border-primary/30 bg-muted/30'
+                    }`}
+                    style={{ display: 'flex' }}
+                  >
+                    {slots[key].preview ? (
+                      <>
+                        <img src={slots[key].preview!} alt={label} className="w-full h-full object-cover" />
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 p-2">
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground text-center">Clique para enviar</span>
+                      </div>
+                    )}
+                  </label>
+                  {slots[key].preview && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removePhoto(key); }}
+                      className="absolute top-1 right-1 bg-black/60 rounded-full p-1 text-white hover:bg-black/80 z-10"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   )}
                   <input
-                    key={key}
+                    id={`photo-input-${key}`}
                     ref={el => { inputRefs.current[key] = el; }}
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];

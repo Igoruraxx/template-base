@@ -468,7 +468,10 @@ const Progress = () => {
 
         {/* Body Composition Dialog */}
         <Dialog open={bodyCompDialog} onOpenChange={(o) => { setBodyCompDialog(o); if (!o) resetBodyCompForm(); }}>
-          <DialogContent className="glass max-w-md max-h-[90vh] overflow-y-auto rounded-2xl">
+          <DialogContent
+            className="glass max-w-md max-h-[90vh] overflow-y-auto rounded-2xl"
+            onInteractOutside={(e) => e.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Scale className="h-5 w-5 text-primary" /> Composição Corporal
@@ -490,31 +493,36 @@ const Progress = () => {
               </div>
 
               {/* Image upload area */}
-              <div
-                onClick={() => !bcImageFile && document.getElementById('bc-image-input')?.click()}
-                className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center cursor-pointer transition-colors ${bcImageFile ? 'border-primary/30 bg-primary/5' : 'border-border/50 hover:border-primary/30'}`}
-              >
-                {bcImagePreview ? (
-                  <div className="relative w-full">
+              <div className="relative">
+                <label
+                  htmlFor="bc-image-input"
+                  className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center cursor-pointer transition-colors ${bcImageFile ? 'border-primary/30 bg-primary/5' : 'border-border/50 hover:border-primary/30'}`}
+                  style={{ display: 'flex' }}
+                >
+                  {bcImagePreview ? (
                     <img src={bcImagePreview} alt="Relatório" className="max-h-48 rounded-lg object-contain mx-auto" />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); resetBodyCompForm(); }}
-                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground text-center">Clique para enviar a foto do relatório</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG, WEBP</p>
-                  </>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground text-center">Clique para enviar a foto do relatório</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG, WEBP</p>
+                    </>
+                  )}
+                </label>
+                {bcImagePreview && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); resetBodyCompForm(); }}
+                    className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 z-10"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 )}
                 <input
                   id="bc-image-input"
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
