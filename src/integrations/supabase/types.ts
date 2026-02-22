@@ -189,6 +189,66 @@ export type Database = {
           },
         ]
       }
+      body_composition_images: {
+        Row: {
+          bmr: number | null
+          body_fat_pct: number | null
+          created_at: string
+          id: string
+          image_path: string
+          measured_at: string
+          muscle_mass: number | null
+          notes: string | null
+          student_id: string
+          trainer_id: string
+          visceral_fat: number | null
+          weight: number | null
+        }
+        Insert: {
+          bmr?: number | null
+          body_fat_pct?: number | null
+          created_at?: string
+          id?: string
+          image_path: string
+          measured_at?: string
+          muscle_mass?: number | null
+          notes?: string | null
+          student_id: string
+          trainer_id: string
+          visceral_fat?: number | null
+          weight?: number | null
+        }
+        Update: {
+          bmr?: number | null
+          body_fat_pct?: number | null
+          created_at?: string
+          id?: string
+          image_path?: string
+          measured_at?: string
+          muscle_mass?: number | null
+          notes?: string | null
+          student_id?: string
+          trainer_id?: string
+          visceral_fat?: number | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "body_composition_images_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "body_composition_images_trainer_id_fkey"
+            columns: ["trainer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
