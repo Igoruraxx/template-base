@@ -13,8 +13,8 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react()].filter(Boolean),
   define: {
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify("https://drjdifrwmbrirmifmxjv.supabase.co"),
-    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyamRpZnJ3bWJyaXJtaWZteGp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MjYwMzIsImV4cCI6MjA4NzAwMjAzMn0.HRcBnzYuvMe1kn-KZfpqWI9A0xAfW3srP6hFi0f4r1c"),
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || "https://drjdifrwmbrirmifmxjv.supabase.co"),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyamRpZnJ3bWJyaXJtaWZteGp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MjYwMzIsImV4cCI6MjA4NzAwMjAzMn0.HRcBnzYuvMe1kn-KZfpqWI9A0xAfW3srP6hFi0f4r1c"),
   },
   resolve: {
     alias: {
