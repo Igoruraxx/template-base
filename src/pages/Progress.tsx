@@ -1,39 +1,28 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { ocrService } from '@/lib/ocrService';
 import { motion, AnimatePresence } from 'framer-motion';
-import html2canvas from 'html2canvas';
 import { useStudents } from '@/hooks/useStudents';
 import { useProgressPhotos, useDeleteProgressPhoto } from '@/hooks/useProgressPhotos';
-import { useBioimpedance, useCreateBioimpedance, useDeleteBioimpedance } from '@/hooks/useBioimpedance';
+import { useBodyComposition, useCreateBodyComposition, useDeleteBodyComposition } from '@/hooks/useBodyComposition';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, TrendingUp, Trash2, X, Image, FileText, Plus, Loader2, Upload, ArrowLeftRight, ClipboardList, FileDown, Search, User, ArrowLeft, ChevronRight, Activity, PlusCircle } from 'lucide-react';
+import { Camera, TrendingUp, Trash2, X, Image, Plus, Loader2, Upload, ArrowLeftRight, ClipboardList, Search, User, ArrowLeft, ChevronRight, Activity, Scale, ImageIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { MultiPhotoUpload } from '@/components/MultiPhotoUpload';
-import { fileToBase64 } from '@/lib/imageUtils';
-import { supabase } from '@/integrations/supabase/client';
+import { compressImage } from '@/lib/imageUtils';
 import { BeforeAfterComparison } from '@/components/BeforeAfterComparison';
 import { AssessmentTab } from '@/components/AssessmentTab';
-import { generateBioimpedancePdf } from '@/lib/generateBioimpedancePdf';
 import { SignedImage } from '@/components/SignedImage';
 import { getSignedUrl } from '@/lib/storageUtils';
-
-const PHOTO_TYPES = [
-  { value: 'front', label: 'Frente' },
-  { value: 'side', label: 'Lado' },
-  { value: 'back', label: 'Costas' },
-  { value: 'other', label: 'Outro' },
-];
 
 const Progress = () => {
   const { user } = useAuth();
@@ -42,127 +31,113 @@ const Progress = () => {
 
   const [selectedStudent, setSelectedStudent] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [tab, setTab] = useState('photos');
   const [multiPhotoOpen, setMultiPhotoOpen] = useState(false);
-  const [bioDialog, setBioDialog] = useState(false);
-  const [ocrDialog, setOcrDialog] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const chartRef = useRef<HTMLDivElement>(null);
 
-  const { data: photos } = useProgressPhotos(selectedStudent || undefined);
-  const { data: bioRecords } = useBioimpedance(selectedStudent || undefined);
-  const deletePhoto = useDeleteProgressPhoto();
-  const createBio = useCreateBioimpedance();
-  const deleteBio = useDeleteBioimpedance();
-
-  // Bio form
-  const [bioForm, setBioForm] = useState({
+  // Body composition state
+  const [bodyCompDialog, setBodyCompDialog] = useState(false);
+  const [bcImageFile, setBcImageFile] = useState<File | null>(null);
+  const [bcImagePreview, setBcImagePreview] = useState<string | null>(null);
+  const [bcOcrLoading, setBcOcrLoading] = useState(false);
+  const [bcExtracted, setBcExtracted] = useState(false);
+  const [bcForm, setBcForm] = useState({
     measuredAt: format(new Date(), 'yyyy-MM-dd'),
-    weight: '', bodyFatPct: '', muscleMass: '', visceralFat: '',
-    bmr: '', bodyWaterPct: '', boneMass: '', reportFile: null as File | null, notes: '',
+    weight: '',
+    bodyFatPct: '',
+    muscleMass: '',
+    visceralFat: '',
+    bmr: '',
   });
 
-  // OCR state
-  const [ocrFile, setOcrFile] = useState<File | null>(null);
-  const [ocrPreview, setOcrPreview] = useState<string | null>(null);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrExtracted, setOcrExtracted] = useState(false);
+  const { data: photos } = useProgressPhotos(selectedStudent || undefined);
+  const { data: bodyCompRecords } = useBodyComposition(selectedStudent || undefined);
+  const deletePhoto = useDeleteProgressPhoto();
+  const createBodyComp = useCreateBodyComposition();
+  const deleteBodyComp = useDeleteBodyComposition();
+
+  const availableStudents = students?.filter(s => s.status !== 'inactive') || [];
+
+  const resetBodyCompForm = () => {
+    setBcImageFile(null);
+    setBcImagePreview(null);
+    setBcExtracted(false);
+    setBcOcrLoading(false);
+    setBcForm({
+      measuredAt: format(new Date(), 'yyyy-MM-dd'),
+      weight: '',
+      bodyFatPct: '',
+      muscleMass: '',
+      visceralFat: '',
+      bmr: '',
+    });
+  };
+
+  const handleImageSelect = async (file: File) => {
+    try {
+      const compressed = await compressImage(file);
+      const preview = URL.createObjectURL(compressed);
+      setBcImageFile(compressed);
+      setBcImagePreview(preview);
+      setBcExtracted(false);
+    } catch {
+      toast({ title: 'Erro ao processar imagem', variant: 'destructive' });
+    }
+  };
 
   const handleOcrExtract = async () => {
-    if (!ocrFile) return;
-    setOcrLoading(true);
+    if (!bcImageFile) return;
+    setBcOcrLoading(true);
     try {
-      const data = await ocrService.extractFromImage(ocrFile);
-      
-      setBioForm(prev => ({
+      const data = await ocrService.extractFromImage(bcImageFile);
+      setBcForm(prev => ({
         ...prev,
         weight: data.weight?.toString() || prev.weight,
         bodyFatPct: data.bodyFatPct?.toString() || prev.bodyFatPct,
         muscleMass: data.muscleMass?.toString() || prev.muscleMass,
         visceralFat: data.visceralFat?.toString() || prev.visceralFat,
         bmr: data.bmr?.toString() || prev.bmr,
-        bodyWaterPct: data.bodyWaterPct?.toString() || prev.bodyWaterPct,
-        boneMass: data.boneMass?.toString() || prev.boneMass,
-        reportFile: ocrFile,
       }));
-      setOcrExtracted(true);
-      toast({ title: 'Valores extraídos localmente! Revise e confirme.' });
+      setBcExtracted(true);
+      toast({ title: 'Dados extraídos! Revise e confirme.' });
     } catch (err: any) {
-      toast({ title: 'Erro na extração local', description: err.message, variant: 'destructive' });
+      toast({ title: 'Erro na extração', description: err.message, variant: 'destructive' });
+      setBcExtracted(true);
     } finally {
-      setOcrLoading(false);
+      setBcOcrLoading(false);
     }
   };
 
-  const handleCreateBio = async () => {
-    if (!selectedStudent) return;
+  const handleSaveBodyComp = async () => {
+    if (!selectedStudent || !bcImageFile) return;
     try {
-      await createBio.mutateAsync({
+      await createBodyComp.mutateAsync({
         studentId: selectedStudent,
-        measuredAt: bioForm.measuredAt,
-        weight: bioForm.weight ? parseFloat(bioForm.weight) : undefined,
-        bodyFatPct: bioForm.bodyFatPct ? parseFloat(bioForm.bodyFatPct) : undefined,
-        muscleMass: bioForm.muscleMass ? parseFloat(bioForm.muscleMass) : undefined,
-        visceralFat: bioForm.visceralFat ? parseFloat(bioForm.visceralFat) : undefined,
-        bmr: bioForm.bmr ? parseFloat(bioForm.bmr) : undefined,
-        bodyWaterPct: bioForm.bodyWaterPct ? parseFloat(bioForm.bodyWaterPct) : undefined,
-        boneMass: bioForm.boneMass ? parseFloat(bioForm.boneMass) : undefined,
-        reportFile: bioForm.reportFile || undefined,
-        notes: bioForm.notes,
+        imageFile: bcImageFile,
+        measuredAt: bcForm.measuredAt,
+        weight: bcForm.weight ? parseFloat(bcForm.weight) : undefined,
+        bodyFatPct: bcForm.bodyFatPct ? parseFloat(bcForm.bodyFatPct) : undefined,
+        muscleMass: bcForm.muscleMass ? parseFloat(bcForm.muscleMass) : undefined,
+        visceralFat: bcForm.visceralFat ? parseFloat(bcForm.visceralFat) : undefined,
+        bmr: bcForm.bmr ? parseFloat(bcForm.bmr) : undefined,
       });
-      toast({ title: 'Registro salvo!' });
-      setBioDialog(false);
-      setOcrDialog(false);
-      resetBioForm();
+      toast({ title: 'Composição corporal salva!' });
+      setBodyCompDialog(false);
+      resetBodyCompForm();
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
     }
   };
 
-  const resetBioForm = () => {
-    setBioForm({ measuredAt: format(new Date(), 'yyyy-MM-dd'), weight: '', bodyFatPct: '', muscleMass: '', visceralFat: '', bmr: '', bodyWaterPct: '', boneMass: '', reportFile: null, notes: '' });
-    setOcrFile(null);
-    setOcrPreview(null);
-    setOcrExtracted(false);
-  };
-
-  const chartData = bioRecords?.map(r => ({
+  // Chart data for body composition
+  const bodyCompChartData = bodyCompRecords?.map(r => ({
     date: format(parseISO(r.measured_at), 'dd/MM', { locale: ptBR }),
     'Peso (kg)': r.weight ? Number(r.weight) : null,
     'Gordura (%)': r.body_fat_pct ? Number(r.body_fat_pct) : null,
-    'Massa Musc. (kg)': r.muscle_mass ? Number(r.muscle_mass) : null,
+    'Músculo (kg)': r.muscle_mass ? Number(r.muscle_mass) : null,
+    'G. Visceral': r.visceral_fat ? Number(r.visceral_fat) : null,
+    'TMB (kcal)': r.bmr ? Number(r.bmr) : null,
   })) || [];
-
-  const availableStudents = students?.filter(s => s.status !== 'inactive') || [];
-
-  const handleDownloadPdf = async () => {
-    if (!bioRecords) return;
-    setIsGeneratingPdf(true);
-    let chartBase64: string | undefined = undefined;
-    
-    try {
-      if (chartRef.current && chartData.length > 1) {
-        toast({ title: 'Gerando PDF...', description: 'Processando gráficos e fotos. Isso pode levar alguns segundos.' });
-        const canvas = await html2canvas(chartRef.current, {
-           backgroundColor: null,
-           scale: 2,
-           logging: false
-        });
-        chartBase64 = canvas.toDataURL('image/png');
-      }
-
-      const studentName = availableStudents.find(s => s.id === selectedStudent)?.name || 'Aluno';
-      await generateBioimpedancePdf(bioRecords, studentName, photos || undefined, chartBase64);
-      toast({ title: 'Relatório gerado com sucesso!' });
-    } catch (error) {
-       console.error(error);
-       toast({ title: 'Erro ao gerar relatório', description: 'Não foi possível renderizar o PDF de evolução.', variant: 'destructive' });
-    } finally {
-       setIsGeneratingPdf(false);
-    }
-  };
 
   return (
     <AppLayout>
@@ -176,19 +151,19 @@ const Progress = () => {
 
         {!selectedStudent ? (
           <div className="space-y-4">
-             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar aluno..."
-                  className="pl-9 bg-muted/50 rounded-xl border-border/50 h-11"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-             </div>
-             <div className="space-y-2 pb-20">
-                 {availableStudents
-                  .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map(s => (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar aluno..."
+                className="pl-9 bg-muted/50 rounded-xl border-border/50 h-11"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2 pb-20">
+              {availableStudents
+                .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map(s => (
                   <motion.div
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -215,28 +190,28 @@ const Progress = () => {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </motion.div>
-                 ))}
-                 {availableStudents.length > 0 && availableStudents.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                   <p className="text-center text-sm text-muted-foreground py-8">Nenhum aluno encontrado.</p>
-                 )}
-                 {availableStudents.length === 0 && (
-                   <div className="text-center py-12">
-                     <User className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-50" />
-                     <p className="font-medium text-muted-foreground">Você ainda não tem alunos ativos.</p>
-                   </div>
-                 )}
-             </div>
+                ))}
+              {availableStudents.length > 0 && availableStudents.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">Nenhum aluno encontrado.</p>
+              )}
+              {availableStudents.length === 0 && (
+                <div className="text-center py-12">
+                  <User className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-50" />
+                  <p className="font-medium text-muted-foreground">Você ainda não tem alunos ativos.</p>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             <button
-               onClick={() => setSelectedStudent('')}
-               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
+              onClick={() => setSelectedStudent('')}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
             >
-               <ArrowLeft className="h-4 w-4" />
-               Voltar
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
             </button>
-            
+
             <div className="flex items-center gap-4 mb-5">
               <Avatar className="h-16 w-16 border-2" style={{ borderColor: availableStudents.find(s => s.id === selectedStudent)?.color || '#10b981' }}>
                 <AvatarImage src={availableStudents.find(s => s.id === selectedStudent)?.avatar_url || undefined} className="object-cover" />
@@ -250,15 +225,6 @@ const Progress = () => {
               </div>
             </div>
 
-            <Button 
-               onClick={handleDownloadPdf} 
-               disabled={isGeneratingPdf || (!bioRecords?.length && !photos?.length)}
-               className="w-full mb-6 h-12 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white shadow-lg shadow-black/10 border border-white/10 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-            >
-               {isGeneratingPdf ? <Loader2 className="h-5 w-5 animate-spin text-emerald-400" /> : <FileDown className="h-5 w-5 text-emerald-400" />}
-               <span className="font-semibold">{isGeneratingPdf ? 'Gerando Laudo Premium...' : 'Gerar Laudo Completo (PDF)'}</span>
-            </Button>
-
             <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="w-full bg-muted rounded-xl p-1 mb-4 flex">
                 <TabsTrigger value="photos" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
@@ -267,8 +233,8 @@ const Progress = () => {
                 <TabsTrigger value="compare" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <ArrowLeftRight className="h-3.5 w-3.5 mr-1" /> Comparar
                 </TabsTrigger>
-                <TabsTrigger value="bio" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                  <TrendingUp className="h-3.5 w-3.5 mr-1" /> Bio
+                <TabsTrigger value="body" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Scale className="h-3.5 w-3.5 mr-1" /> Composição
                 </TabsTrigger>
                 <TabsTrigger value="assessment" className="flex-1 rounded-lg text-xs py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <ClipboardList className="h-3.5 w-3.5 mr-1" /> Avaliação
@@ -306,16 +272,16 @@ const Progress = () => {
                     <p className="text-base font-medium">Nenhuma foto ainda</p>
                     <p className="text-sm text-muted-foreground mt-1 mb-4">Acompanhe a evolução tirando a primeira foto.</p>
                     <Button onClick={() => setMultiPhotoOpen(true)} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
-                       Tirar foto agora
+                      Tirar foto agora
                     </Button>
                   </div>
                 )}
-                
+
                 {photos && photos.length > 0 && (
                   <div className="fixed bottom-20 right-4 z-40">
-                    <Button 
-                      onClick={() => setMultiPhotoOpen(true)} 
-                      size="icon" 
+                    <Button
+                      onClick={() => setMultiPhotoOpen(true)}
+                      size="icon"
                       className="h-14 w-14 rounded-full gradient-primary shadow-lg shadow-primary/30 text-white"
                     >
                       <Plus className="h-6 w-6" />
@@ -331,76 +297,99 @@ const Progress = () => {
                 />
               </TabsContent>
 
-              <TabsContent value="bio" className="mt-0">
+              <TabsContent value="body" className="mt-0">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold text-sm">Histórico Corporal</h3>
-                  <div className="flex gap-2">
-                    <Button onClick={() => { resetBioForm(); setOcrDialog(true); }} size="icon" variant="outline" className="rounded-full h-9 w-9">
-                      <Upload className="h-4 w-4" />
-                    </Button>
-                    <Button onClick={() => { resetBioForm(); setBioDialog(true); }} size="sm" className="rounded-full gradient-primary text-primary-foreground">
-                      <Plus className="h-4 w-4 mr-1" /> Manual
-                    </Button>
-                  </div>
+                  <h3 className="font-semibold text-sm">Composição Corporal</h3>
+                  <Button
+                    onClick={() => { resetBodyCompForm(); setBodyCompDialog(true); }}
+                    size="sm"
+                    className="rounded-full gradient-primary text-primary-foreground"
+                  >
+                    <Upload className="h-4 w-4 mr-1" /> Enviar Imagem
+                  </Button>
                 </div>
 
-                {chartData.length > 0 ? (
-                  <div className="glass rounded-2xl p-4 mb-5 border border-border/50 shadow-sm bg-background/95" ref={chartRef}>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                {bodyCompRecords && bodyCompRecords.length === 0 && (
+                  <div className="glass rounded-2xl p-8 flex flex-col items-center text-center mt-4 mb-4">
+                    <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                      <Scale className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-base font-medium">Sem registros ainda</p>
+                    <p className="text-sm text-muted-foreground mt-1 mb-4">
+                      Envie a foto do relatório da balança de bioimpedância para extrair os dados automaticamente.
+                    </p>
+                    <Button onClick={() => { resetBodyCompForm(); setBodyCompDialog(true); }} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
+                      Enviar primeira imagem
+                    </Button>
+                  </div>
+                )}
+
+                {bodyCompRecords && bodyCompRecords.length >= 2 && (
+                  <div className="glass rounded-2xl p-4 mb-5 border border-border/50 shadow-sm bg-background/95">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Comparativo Gráfico</p>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <LineChart data={bodyCompChartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} dy={10} />
                         <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
                         <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px', fontSize: 12, boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                         <Legend wrapperStyle={{ fontSize: 10, paddingTop: '10px' }} iconType="circle" />
-                        <Line type="monotone" dataKey="Peso (kg)" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} connectNulls />
-                        <Line type="monotone" dataKey="Gordura (%)" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} connectNulls />
-                        <Line type="monotone" dataKey="Massa Musc. (kg)" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 6 }} connectNulls />
+                        <Line type="monotone" dataKey="Peso (kg)" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 5 }} connectNulls />
+                        <Line type="monotone" dataKey="Gordura (%)" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 5 }} connectNulls />
+                        <Line type="monotone" dataKey="Músculo (kg)" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 5 }} connectNulls />
+                        <Line type="monotone" dataKey="G. Visceral" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 5 }} connectNulls />
+                        <Line type="monotone" dataKey="TMB (kcal)" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: 'hsl(var(--background))' }} activeDot={{ r: 5 }} connectNulls />
                       </LineChart>
                     </ResponsiveContainer>
-                    {chartData.length === 1 && (
-                      <p className="text-[10px] text-center text-muted-foreground mt-2 italic">
-                        * Adicione mais medições para visualizar a linha de tendência.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="glass rounded-2xl p-6 mb-5 border border-dashed border-border/50 flex flex-col items-center justify-center text-center">
-                    <TrendingUp className="h-8 w-8 text-muted-foreground/30 mb-2" />
-                    <p className="text-xs text-muted-foreground">O gráfico de evolução aparecerá aqui após o primeiro registro.</p>
                   </div>
                 )}
 
                 <div className="space-y-3 pb-20">
-                  {bioRecords?.slice().reverse().map((record, index, arr) => {
-                    // Cálculo simples para ver se subiu ou desceu (comparando com o anterior histórico, que no array invertido é index + 1)
+                  {bodyCompRecords?.slice().reverse().map((record, index, arr) => {
                     const prevRecord = arr[index + 1];
-                    const weightDiff = prevRecord && record.weight && prevRecord.weight ? (Number(record.weight) - Number(prevRecord.weight)).toFixed(1) : null;
-                    const fatDiff = prevRecord && record.body_fat_pct && prevRecord.body_fat_pct ? (Number(record.body_fat_pct) - Number(prevRecord.body_fat_pct)).toFixed(1) : null;
-                    const muscleDiff = prevRecord && record.muscle_mass && prevRecord.muscle_mass ? (Number(record.muscle_mass) - Number(prevRecord.muscle_mass)).toFixed(1) : null;
+                    const weightDiff = prevRecord && record.weight && prevRecord.weight
+                      ? (Number(record.weight) - Number(prevRecord.weight)).toFixed(1) : null;
+                    const fatDiff = prevRecord && record.body_fat_pct && prevRecord.body_fat_pct
+                      ? (Number(record.body_fat_pct) - Number(prevRecord.body_fat_pct)).toFixed(1) : null;
+                    const muscleDiff = prevRecord && record.muscle_mass && prevRecord.muscle_mass
+                      ? (Number(record.muscle_mass) - Number(prevRecord.muscle_mass)).toFixed(1) : null;
 
                     return (
-                    <motion.div key={record.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="glass rounded-xl p-4 border border-border/50">
-                      <div className="flex justify-between items-center mb-3">
-                        <div className="flex items-center gap-2">
-                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                             <Activity className="h-4 w-4 text-primary" />
-                           </div>
-                           <p className="text-sm font-semibold">
-                             {format(parseISO(record.measured_at), "dd MMM yyyy", { locale: ptBR })}
-                           </p>
+                      <motion.div key={record.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                        className="glass rounded-xl p-4 border border-border/50">
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Scale className="h-4 w-4 text-primary" />
+                            </div>
+                            <p className="text-sm font-semibold">
+                              {format(parseISO(record.measured_at), "dd MMM yyyy", { locale: ptBR })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={async () => {
+                                const url = await getSignedUrl('bioimpedance-reports', record.image_path);
+                                setLightboxUrl(url);
+                              }}
+                              className="text-muted-foreground hover:text-primary transition-colors p-1"
+                              title="Ver imagem original"
+                            >
+                              <ImageIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteBodyComp.mutate({ id: record.id, imagePath: record.image_path })}
+                              className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                              title="Remover registro"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => deleteBio.mutate(record.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Remover avaliação">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-2 mt-1">
-                        {record.weight && (
-                           <div className="bg-muted/30 rounded-lg p-2 text-center">
+
+                        <div className="grid grid-cols-3 gap-2">
+                          {record.weight && (
+                            <div className="bg-muted/30 rounded-lg p-2 text-center">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Peso</p>
                               <p className="text-lg font-bold mt-0.5">{Number(record.weight).toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">kg</span></p>
                               {weightDiff && Number(weightDiff) !== 0 && (
@@ -408,10 +397,10 @@ const Progress = () => {
                                   {Number(weightDiff) > 0 ? '↑' : '↓'} {Math.abs(Number(weightDiff))}
                                 </p>
                               )}
-                           </div>
-                        )}
-                        {record.body_fat_pct && (
-                           <div className="bg-muted/30 rounded-lg p-2 text-center">
+                            </div>
+                          )}
+                          {record.body_fat_pct && (
+                            <div className="bg-muted/30 rounded-lg p-2 text-center">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gordura</p>
                               <p className="text-lg font-bold mt-0.5">{Number(record.body_fat_pct).toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">%</span></p>
                               {fatDiff && Number(fatDiff) !== 0 && (
@@ -419,10 +408,10 @@ const Progress = () => {
                                   {Number(fatDiff) > 0 ? '↑' : '↓'} {Math.abs(Number(fatDiff))}
                                 </p>
                               )}
-                           </div>
-                        )}
-                        {record.muscle_mass && (
-                           <div className="bg-muted/30 rounded-lg p-2 text-center">
+                            </div>
+                          )}
+                          {record.muscle_mass && (
+                            <div className="bg-muted/30 rounded-lg p-2 text-center">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Músculo</p>
                               <p className="text-lg font-bold mt-0.5">{Number(record.muscle_mass).toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">kg</span></p>
                               {muscleDiff && Number(muscleDiff) !== 0 && (
@@ -430,32 +419,24 @@ const Progress = () => {
                                   {Number(muscleDiff) > 0 ? '↑' : '↓'} {Math.abs(Number(muscleDiff))}
                                 </p>
                               )}
-                           </div>
-                        )}
-                      </div>
-                      
-                      {record.report_url && (
-                        <div className="mt-3 pt-3 border-t border-border/50">
-                           <button onClick={async () => { const url = await getSignedUrl('bioimpedance-reports', record.report_url); window.open(url, '_blank'); }}
-                             className="flex items-center justify-center w-full gap-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/5 py-2 rounded-lg">
-                             <FileText className="h-3.5 w-3.5" /> Ver PDF Original do Exame
-                           </button>
+                            </div>
+                          )}
+                          {record.visceral_fat && (
+                            <div className="bg-muted/30 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">G. Visceral</p>
+                              <p className="text-lg font-bold mt-0.5">{Number(record.visceral_fat).toFixed(0)}</p>
+                            </div>
+                          )}
+                          {record.bmr && (
+                            <div className="bg-muted/30 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">TMB</p>
+                              <p className="text-lg font-bold mt-0.5">{Number(record.bmr).toFixed(0)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">kcal</span></p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </motion.div>
-                  )})}
-                  {(!bioRecords || bioRecords.length === 0) && (
-                    <div className="glass rounded-2xl p-8 flex flex-col items-center text-center mt-4">
-                      <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-                         <TrendingUp className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <p className="text-base font-medium">Sem dados corporais</p>
-                      <p className="text-sm text-muted-foreground mt-1 mb-4">Mantenha o histórico do aluno atualizado.</p>
-                      <Button onClick={() => setBioDialog(true)} size="sm" className="rounded-xl gradient-primary text-primary-foreground">
-                         Lançar primeira avaliação
-                      </Button>
-                    </div>
-                  )}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </TabsContent>
 
@@ -485,103 +466,123 @@ const Progress = () => {
           <MultiPhotoUpload open={multiPhotoOpen} onOpenChange={setMultiPhotoOpen} studentId={selectedStudent} />
         )}
 
-        {/* OCR Bio Dialog */}
-        <Dialog open={ocrDialog} onOpenChange={(o) => { setOcrDialog(o); if (!o) resetBioForm(); }}>
-          <DialogContent className="glass max-w-md max-h-[85vh] overflow-y-auto rounded-2xl">
+        {/* Body Composition Dialog */}
+        <Dialog open={bodyCompDialog} onOpenChange={(o) => { setBodyCompDialog(o); if (!o) resetBodyCompForm(); }}>
+          <DialogContent className="glass max-w-md max-h-[90vh] overflow-y-auto rounded-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Upload className="h-5 w-5 text-primary" /> Bioimpedância por Arquivo
+                <Scale className="h-5 w-5 text-primary" /> Composição Corporal
               </DialogTitle>
-              <DialogDescription>Envie o laudo da balança (PDF ou imagem) para extrair os dados automaticamente</DialogDescription>
+              <DialogDescription>
+                Envie a foto do relatório da balança para extrair os dados automaticamente
+              </DialogDescription>
             </DialogHeader>
+
             <div className="space-y-4 mt-2">
               <div>
-                <Label className="text-muted-foreground text-xs">Data</Label>
-                <Input type="date" value={bioForm.measuredAt}
-                  onChange={(e) => setBioForm({ ...bioForm, measuredAt: e.target.value })}
-                  className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+                <Label className="text-muted-foreground text-xs">Data da medição</Label>
+                <Input
+                  type="date"
+                  value={bcForm.measuredAt}
+                  onChange={(e) => setBcForm(p => ({ ...p, measuredAt: e.target.value }))}
+                  className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1"
+                />
               </div>
 
-              {!ocrExtracted ? (
-                <>
-                  <div
-                    onClick={() => document.getElementById('ocr-input')?.click()}
-                    className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center cursor-pointer hover:border-primary/30 transition-colors"
-                  >
-                    {ocrFile ? (
-                      ocrFile.type === 'application/pdf' ? (
-                        <div className="flex flex-col items-center gap-1">
-                          <FileText className="h-10 w-10 text-primary" />
-                          <p className="text-sm text-foreground font-medium">{ocrFile.name}</p>
-                        </div>
-                      ) : (
-                        <img src={ocrPreview!} alt="Preview" className="max-h-48 rounded-lg object-contain" />
-                      )
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Clique para enviar o laudo ou imagem</p>
-                      </>
-                    )}
-                    <input id="ocr-input" type="file" accept="image/*,.pdf" className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) {
-                          setOcrFile(f);
-                          if (f.type !== 'application/pdf') {
-                            setOcrPreview(URL.createObjectURL(f));
-                          } else {
-                            setOcrPreview(null);
-                          }
-                        }
-                      }} />
+              {/* Image upload area */}
+              <div
+                onClick={() => !bcImageFile && document.getElementById('bc-image-input')?.click()}
+                className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center cursor-pointer transition-colors ${bcImageFile ? 'border-primary/30 bg-primary/5' : 'border-border/50 hover:border-primary/30'}`}
+              >
+                {bcImagePreview ? (
+                  <div className="relative w-full">
+                    <img src={bcImagePreview} alt="Relatório" className="max-h-48 rounded-lg object-contain mx-auto" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); resetBodyCompForm(); }}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
-                  <Button onClick={handleOcrExtract} disabled={!ocrFile || ocrLoading}
-                    className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold">
-                    {ocrLoading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Extraindo...</> : 'Extrair valores'}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  {ocrPreview && (
-                    <img src={ocrPreview} alt="Scale" className="max-h-32 rounded-lg object-contain mx-auto" />
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground text-center">Clique para enviar a foto do relatório</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">PNG, JPG, WEBP</p>
+                  </>
+                )}
+                <input
+                  id="bc-image-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleImageSelect(f);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+
+              {bcImageFile && !bcExtracted && (
+                <Button
+                  onClick={handleOcrExtract}
+                  disabled={bcOcrLoading}
+                  className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold"
+                >
+                  {bcOcrLoading ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Extraindo dados...</>
+                  ) : (
+                    'Extrair Dados Automaticamente'
                   )}
-                  <BioFormFields bioForm={bioForm} setBioForm={setBioForm} />
-                  <Button onClick={handleCreateBio} disabled={createBio.isPending}
-                    className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold">
-                    {createBio.isPending ? 'Salvando...' : 'Confirmar e salvar'}
+                </Button>
+              )}
+
+              {(bcExtracted || bcImageFile) && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-muted-foreground text-xs">Peso (kg)</Label>
+                      <Input type="number" step="0.1" value={bcForm.weight}
+                        onChange={(e) => setBcForm(p => ({ ...p, weight: e.target.value }))}
+                        className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">% Gordura Corporal</Label>
+                      <Input type="number" step="0.1" value={bcForm.bodyFatPct}
+                        onChange={(e) => setBcForm(p => ({ ...p, bodyFatPct: e.target.value }))}
+                        className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-muted-foreground text-xs">Massa Muscular (kg)</Label>
+                      <Input type="number" step="0.1" value={bcForm.muscleMass}
+                        onChange={(e) => setBcForm(p => ({ ...p, muscleMass: e.target.value }))}
+                        className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">Gordura Visceral</Label>
+                      <Input type="number" step="0.1" value={bcForm.visceralFat}
+                        onChange={(e) => setBcForm(p => ({ ...p, visceralFat: e.target.value }))}
+                        className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">Gasto Calórico Basal (kcal)</Label>
+                    <Input type="number" value={bcForm.bmr}
+                      onChange={(e) => setBcForm(p => ({ ...p, bmr: e.target.value }))}
+                      className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
+                  </div>
+                  <Button
+                    onClick={handleSaveBodyComp}
+                    disabled={createBodyComp.isPending || !bcImageFile}
+                    className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold"
+                  >
+                    {createBodyComp.isPending ? 'Salvando...' : 'Salvar Registro'}
                   </Button>
                 </>
               )}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Manual Bio Dialog */}
-        <Dialog open={bioDialog} onOpenChange={(o) => { setBioDialog(o); if (!o) resetBioForm(); }}>
-          <DialogContent className="glass max-w-md max-h-[85vh] overflow-y-auto rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>Novo Registro Manual</DialogTitle>
-              <DialogDescription>Dados da bioimpedância</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 mt-2">
-              <div>
-                <Label className="text-muted-foreground text-xs">Data</Label>
-                <Input type="date" value={bioForm.measuredAt}
-                  onChange={(e) => setBioForm({ ...bioForm, measuredAt: e.target.value })}
-                  className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-              </div>
-              <BioFormFields bioForm={bioForm} setBioForm={setBioForm} />
-              <div>
-                <Label className="text-muted-foreground text-xs">Laudo (PDF/imagem)</Label>
-                <Input type="file" accept=".pdf,image/*"
-                  onChange={(e) => setBioForm({ ...bioForm, reportFile: e.target.files?.[0] || null })}
-                  className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" />
-              </div>
-              <Button onClick={handleCreateBio} disabled={createBio.isPending}
-                className="w-full h-11 rounded-xl gradient-primary text-primary-foreground font-semibold">
-                {createBio.isPending ? 'Salvando...' : 'Salvar registro'}
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -589,31 +590,5 @@ const Progress = () => {
     </AppLayout>
   );
 };
-
-// Extracted bio form fields to avoid duplication
-const BioFormFields = ({ bioForm, setBioForm }: { bioForm: any; setBioForm: (fn: any) => void }) => (
-  <>
-    <div className="grid grid-cols-2 gap-3">
-      <div><Label className="text-muted-foreground text-xs">Peso (kg)</Label>
-        <Input type="number" step="0.1" value={bioForm.weight} onChange={(e) => setBioForm((p: any) => ({ ...p, weight: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-      <div><Label className="text-muted-foreground text-xs">Gordura (%)</Label>
-        <Input type="number" step="0.1" value={bioForm.bodyFatPct} onChange={(e) => setBioForm((p: any) => ({ ...p, bodyFatPct: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-    </div>
-    <div className="grid grid-cols-2 gap-3">
-      <div><Label className="text-muted-foreground text-xs">Massa Muscular (kg)</Label>
-        <Input type="number" step="0.1" value={bioForm.muscleMass} onChange={(e) => setBioForm((p: any) => ({ ...p, muscleMass: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-      <div><Label className="text-muted-foreground text-xs">Gordura Visceral</Label>
-        <Input type="number" step="0.1" value={bioForm.visceralFat} onChange={(e) => setBioForm((p: any) => ({ ...p, visceralFat: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-    </div>
-    <div className="grid grid-cols-3 gap-3">
-      <div><Label className="text-muted-foreground text-xs">TMB (kcal)</Label>
-        <Input type="number" value={bioForm.bmr} onChange={(e) => setBioForm((p: any) => ({ ...p, bmr: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-      <div><Label className="text-muted-foreground text-xs">Água (%)</Label>
-        <Input type="number" step="0.1" value={bioForm.bodyWaterPct} onChange={(e) => setBioForm((p: any) => ({ ...p, bodyWaterPct: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-      <div><Label className="text-muted-foreground text-xs">M. Óssea (kg)</Label>
-        <Input type="number" step="0.1" value={bioForm.boneMass} onChange={(e) => setBioForm((p: any) => ({ ...p, boneMass: e.target.value }))} className="bg-muted/50 border-border/50 rounded-xl h-11 mt-1" /></div>
-    </div>
-  </>
-);
 
 export default Progress;

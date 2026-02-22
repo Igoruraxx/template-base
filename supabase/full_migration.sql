@@ -307,6 +307,40 @@ ON public.bioimpedance FOR DELETE USING (auth.uid() = trainer_id OR public.has_r
 
 CREATE INDEX IF NOT EXISTS idx_bioimpedance_student ON public.bioimpedance(student_id);
 
+-- ==================== BODY COMPOSITION IMAGES ====================
+
+CREATE TABLE IF NOT EXISTS public.body_composition_images (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  trainer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  image_path TEXT NOT NULL,
+  measured_at DATE NOT NULL DEFAULT CURRENT_DATE,
+  weight NUMERIC(5,2),
+  body_fat_pct NUMERIC(5,2),
+  muscle_mass NUMERIC(5,2),
+  visceral_fat NUMERIC(5,2),
+  bmr NUMERIC(7,2),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.body_composition_images ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Trainers can view their body composition records" ON public.body_composition_images;
+CREATE POLICY "Trainers can view their body composition records"
+ON public.body_composition_images FOR SELECT
+USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Trainers can insert body composition" ON public.body_composition_images;
+CREATE POLICY "Trainers can insert body composition"
+ON public.body_composition_images FOR INSERT WITH CHECK (auth.uid() = trainer_id);
+
+DROP POLICY IF EXISTS "Trainers can delete body composition" ON public.body_composition_images;
+CREATE POLICY "Trainers can delete body composition"
+ON public.body_composition_images FOR DELETE USING (auth.uid() = trainer_id OR public.has_role(auth.uid(), 'admin'));
+
+CREATE INDEX IF NOT EXISTS idx_body_composition_student ON public.body_composition_images(student_id);
+
 -- ==================== PAYMENTS ====================
 
 CREATE TABLE IF NOT EXISTS public.payments (
