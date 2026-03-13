@@ -1,73 +1,125 @@
-# Welcome to your Lovable project
+# Template Base React
 
-## Project info
+A React + TypeScript + Vite template with shadcn-ui, Tailwind CSS, and Supabase integration, ready to deploy on Railway.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Technologies
 
-## How can I edit this code?
+- **React 18** + TypeScript
+- **Vite** (build tool)
+- **shadcn/ui** (component library)
+- **Tailwind CSS** (styling)
+- **Supabase** (authentication & database)
+- **React Router v6** (routing)
+- **TanStack Query** (server state management)
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### 1. Clone the repository
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+```bash
 git clone <YOUR_GIT_URL>
+cd template-base
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 2. Install dependencies
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+npm install
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your Supabase credentials:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+VITE_PUBLIC_SITE_URL=http://localhost:5173
+```
+
+### 4. Start the development server
+
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Open `http://localhost:5173` in your browser.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Available Commands
 
-**Use GitHub Codespaces**
+```bash
+npm run dev          # Development server
+npm run build        # Production build
+npm run preview      # Preview production build
+npm run lint         # Run ESLint
+npm run test         # Run tests
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Deploy on Railway
 
-## What technologies are used for this project?
+### Automatic Deploy
 
-This project is built with:
+1. Push your repository to GitHub
+2. Go to [Railway](https://railway.app) and create a new project
+3. Select **"Deploy from GitHub repo"** and choose your repository
+4. Railway auto-detects Vite and builds the project using Nixpacks
+5. Add environment variables in **Settings → Variables**:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_PUBLIC_SITE_URL` (your Railway app URL, e.g. `https://your-app.up.railway.app`)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Manual Deploy via CLI
 
-## How can I deploy this project?
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+# Login
+railway login
 
-## Can I connect a custom domain to my Lovable project?
+# Link to your project
+railway link
 
-Yes, you can!
+# Deploy
+railway up
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Environment Variables on Railway
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+In your Railway project dashboard → **Settings → Variables**, add:
+
+| Variable | Description |
+|---|---|
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
+| `VITE_PUBLIC_SITE_URL` | Your deployed app URL |
+| `VITE_GEMINI_API_KEY` | (Optional) Gemini AI key for OCR features |
+
+## Project Structure
+
+```
+src/
+├── components/          # UI Components
+│   └── ui/             # shadcn/ui components
+├── contexts/           # React Contexts (Auth, etc.)
+├── hooks/              # Custom React Hooks
+├── integrations/       # External integrations
+│   └── supabase/       # Supabase client & types
+├── lib/                # Utility functions
+├── pages/              # Application pages
+└── test/               # Tests
+```
+
+## Supabase Setup
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Copy the **Project URL** and **anon public key** from **Settings → API**
+3. Set these as environment variables (see above)
+
+## License
+
+MIT
