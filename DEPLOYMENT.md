@@ -1,221 +1,88 @@
-# Deployment Guide - Template Base React
+# Deployment Guide - Railway
 
-## 🚀 Opções de Deploy
+## 🚀 Deploy on Railway
 
-### 1. Vercel (Recomendado)
+Railway is the recommended platform for deploying this template.
 
-#### Setup Automático
-```bash
-# Instalar Vercel CLI
-npm i -g vercel
+### Prerequisites
 
-# Deploy do projeto
-vercel
+- GitHub repository with your project
+- [Railway account](https://railway.app)
+- Supabase project (for auth and database)
 
-# Follow the prompts:
-# - Link to existing project? No
-# - Project name? template-base-react
-# - Directory? . (current)
-# - Want to override settings? No
-```
+### Step 1: Connect Repository
 
-#### Configuração Manual
-1. Acesse https://vercel.com/dashboard
-2. Clique "Add New Project"
-3. Importe seu repositório GitHub
-4. Configure:
-   - **Framework**: Vite
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-   - **Install Command**: `npm install`
+1. Go to [railway.app](https://railway.app) and click **"New Project"**
+2. Select **"Deploy from GitHub repo"**
+3. Authorize Railway and choose your repository
+4. Railway will automatically detect the Vite framework and start building
 
-#### Environment Variables no Vercel
-No dashboard do projeto → Settings → Environment Variables:
+### Step 2: Configure Environment Variables
+
+In your Railway project → **Settings → Variables**, add:
 
 ```env
-VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-chave-anonima
-VITE_SUPABASE_PROJECT_ID=seu-project-id
-VITE_PUBLIC_SITE_URL=https://seu-dominio.vercel.app
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_PUBLIC_SITE_URL=https://your-app.up.railway.app
 ```
 
-### 2. Netlify
+> ⚠️ Never commit real credentials to `.env`. Use Railway's variable management.
 
-#### Setup
+### Step 3: Custom Domain (Optional)
+
+1. Go to **Settings → Domains**
+2. Add your custom domain
+3. Update `VITE_PUBLIC_SITE_URL` to your custom domain
+4. Update your Supabase project's allowed redirect URLs
+
+### Build Configuration
+
+The `railway.json` at the project root handles the build and start commands:
+
+- **Build**: `npm run build` (via Nixpacks)
+- **Start**: `npx serve -s dist -p $PORT`
+
+### Supabase Auth Redirect URLs
+
+In your Supabase project → **Authentication → URL Configuration**, add:
+
+```
+https://your-app.up.railway.app
+https://your-app.up.railway.app/auth/confirm
+```
+
+## 🛠️ Local Development
+
 ```bash
-# Instalar Netlify CLI
-npm i -g netlify-cli
-
-# Build e deploy
-npm run build
-netlify deploy --prod --dir=dist
-```
-
-#### Configuração
-- **Build command**: `npm run build`
-- **Publish directory**: `dist`
-- **Environment variables**: Mesmas do Vercel
-
-### 3. Render
-
-#### Setup
-1. Conecte seu repositório GitHub/GitLab
-2. Configure:
-   - **Build Command**: `npm run build`
-   - **Publish Directory**: `dist`
-   - **Environment**: Node 18+
-
-### 4. Docker
-
-#### Build
-```bash
-docker build -t template-base-react .
-docker run -p 80:80 template-base-react
-```
-
-#### Dockerfile (já incluído)
-```dockerfile
-FROM node:18-alpine as builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-## 🔧 Configurações Específicas
-
-### Custom Domains
-
-#### Vercel
-1. Project Settings → Domains
-2. Adicione seu domínio
-3. Configure DNS apontando para Vercel
-
-#### Netlify
-1. Site settings → Domain management
-2. Adicione custom domain
-3. Configure DNS
-
-### HTTPS
-Todos os provedores oferecem HTTPS automático.
-
-## 📋 Checklist Pre-Deploy
-
-### ✅ Build Test
-```bash
-npm run build
-# Verifique se não há erros
-```
-
-### ✅ Environment Variables
-- [ ] Supabase URL e Key configuradas
-- [ ] Site URL atualizada
-- [ ] APIs opcionais configuradas (se necessário)
-
-### ✅ Performance
-- [ ] Imagens otimizadas
-- [ ] Lazy loading funcionando
-- [ ] Build size < 1MB (ideal)
-
-### ✅ SEO
-- [ ] Meta tags configuradas
-- [ ] Open Graph tags
-- [ ] Sitemap (se necessário)
-
-## 🚨 Troubleshooting
-
-### Build Fails
-```bash
-# Limpar cache
-rm -rf node_modules dist .vite
+# Install dependencies
 npm install
+
+# Copy environment file
+cp .env.example .env
+# Edit .env with your credentials
+
+# Start dev server
+npm run dev
+```
+
+## 📦 Manual Build
+
+```bash
 npm run build
+npx serve -s dist
 ```
 
-### Environment Variables não funcionam
-- Verifique prefixo `VITE_` para variáveis do frontend
-- Reinicie o servidor após mudar `.env`
-- No deploy, configure no dashboard do provedor
+## 🔧 Railway CLI Deploy
 
-### Supabase Connection Error
-- Verifique CORS settings no Supabase
-- Confirme se URL está correta
-- Teste com Supabase Studio
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
 
-### Imagens não carregam
-- Verifique configuração de storage no Supabase
-- Confirme permissões RLS policies
-- Teste com URLs diretas
+# Login and link project
+railway login
+railway link
 
-## 📊 Monitoramento
-
-### Vercel Analytics
-Ativado por padrão em projetos Vercel.
-
-### Custom Analytics
-```javascript
-// Exemplo com Google Analytics
-import { useEffect } from 'react';
-
-useEffect(() => {
-  if (import.meta.env.PROD && window.gtag) {
-    window.gtag('config', 'GA_MEASUREMENT_ID');
-  }
-}, []);
+# Deploy
+railway up
 ```
-
-## 🔄 CI/CD
-
-### GitHub Actions
-```yaml
-name: Deploy
-on:
-  push:
-    branches: [main]
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - run: npm ci
-      - run: npm run build
-      - uses: vercel/action@v1
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.ORG_ID }}
-          vercel-project-id: ${{ secrets.PROJECT_ID }}
-```
-
-## 🎯 Best Practices
-
-### Performance
-- Use lazy loading para rotas
-- Otimize imagens com WebP
-- Configure cache headers
-- Monitore Core Web Vitals
-
-### Security
-- Não exponha secrets no frontend
-- Use HTTPS sempre
-- Configure CSP headers
-- Monitore vulnerabilidades
-
-### Scalability
-- Configure CDN
-- Use edge functions quando possível
-- Monitore performance
-- Planeje scaling horizontal
-
----
-
-**Status**: ✅ Ready for production deployment
